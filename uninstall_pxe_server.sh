@@ -7,4 +7,5 @@
 
 # Suppression de dnsmasq (DHCP, TFTP)
 sudo apt-get remove --purge -y dnsmasq*
+sudo rm -rf /var/log/dnsmasq.log /srv/tftp
 sudo apt-get autoremove --purge -y
