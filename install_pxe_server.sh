@@ -3,7 +3,7 @@
 # sudo apt install curl
 
 # puis pour l'exécuter
-# curl
+# curl https://raw.githubusercontent.com/M-Paladin/lvsb/main/install_pxe_server.sh | bash
 
 # Setup Debian PXEinstall environment
 
