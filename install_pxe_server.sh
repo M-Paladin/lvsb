@@ -14,6 +14,7 @@ DHCP-SERVEUR="192.168.1.1"
 sudo apt-get update
 
 # Installation de dnsmasq (DHCP, TFTP)
+sudo mkdir -p /srv/tftp
 sudo apt-get install -y dnsmasq
 
 # Configuration de dnsmasq
@@ -29,7 +30,4 @@ log-queries
 log-facility=/var/log/dnsmasq.log
 " | sudo tee /etc/dnsmasq.d/pxe.conf
 
-sudo mkdir -p /srv/tftp
-curl https://deb.debian.org/debian/dists/stable/main/installer-amd64/current/images/netboot/netboot.tar.gz
-sudo tar xzf netboot.tar.gz -C /srv/tftp
-sudo rm -rf netboot.tar.gz
+curl https://deb.debian.org/debian/dists/stable/main/installer-amd64/current/images/netboot/netboot.tar.gz | sudo tar xzf - -C /srv/tftp
