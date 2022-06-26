@@ -30,4 +30,17 @@ log-queries
 log-facility=/var/log/dnsmasq.log
 " | sudo tee /etc/dnsmasq.d/pxe.conf
 
+# Redémarrage du service pour prise en compte de la configuration
+sudo service dnsmasq restart
+
+# Recupération des fichiers de boot Debian
 curl https://deb.debian.org/debian/dists/stable/main/installer-amd64/current/images/netboot/netboot.tar.gz | sudo tar xzf - -C /srv/tftp
+
+# droits de lecture sur le TFTP
+chmod -R a+r /srv/tftp/*
+
+# Démarrage en Bios ou UEFI possible
+cd /srv/tftp
+ln -s debian-installer/amd64/grubx64.efi .
+ln -s debian-installer/amd64/grub .
+cd ~
