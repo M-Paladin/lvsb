@@ -12,5 +12,5 @@
 sudo apt update
 
 # Installation de dnsmasq (DHCP, TFTP)
-sudo apt install dnsmasq
+sudo apt install -y dnsmasq
 
