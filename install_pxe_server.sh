@@ -29,4 +29,6 @@ log-facility=/var/log/dnsmasq.log
 " | sudo tee /etc/dnsmasq.d/pxe.conf
 
 sudo mkdir -p /srv/tftp
-curl https://deb.debian.org/debian/dists/stable/main/installer-amd64/current/images/netboot/netboot.tar.gz | tar xzf -C /srv/tftp -
+curl https://deb.debian.org/debian/dists/stable/main/installer-amd64/current/images/netboot/netboot.tar.gz
+sudo tar xzf -C /srv/tftp netboot.tar.gz
+sudo rm -rf netboot.tar.gz
