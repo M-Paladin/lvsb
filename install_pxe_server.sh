@@ -9,8 +9,8 @@
 # Configuration d'un serveur Debian PXE
 
 # Mise à jour des sources Debian
-sudo apt update
+sudo apt-get update
 
 # Installation de dnsmasq (DHCP, TFTP)
-sudo apt install -y dnsmasq
+sudo apt-get install -y dnsmasq
 
