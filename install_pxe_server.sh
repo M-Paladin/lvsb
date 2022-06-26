@@ -3,7 +3,8 @@
 # sudo apt install curl
 
 # puis pour l'exécuter
-# curl https://raw.githubusercontent.com/M-Paladin/lvsb/main/install_pxe_server.sh | bash
+# curl curl -H 'Authorization: token GHSAT0AAAAAABWAJ3QCTMCTROBMCJK567PWYVYULVQ' -H 'Accept: application/vnd.github.v3.raw' -O -L https://api.github.com/repos/M-Paladin/lvsb/main/install_pxe_server.sh | bash
+
 
 # Setup Debian PXEinstall environment
 
