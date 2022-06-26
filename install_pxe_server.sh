@@ -17,7 +17,8 @@ sudo apt-get update
 sudo apt-get install -y dnsmasq
 
 # Configuration de dnsmasq
-echo "
+netboot.tar.gz
+echo "\
 port=0
 dhcp-range=$RESEAU,proxy
 dhcp-boot=pxelinux.0,pxeserver,DHCP-SERVEUR
@@ -30,5 +31,5 @@ log-facility=/var/log/dnsmasq.log
 
 sudo mkdir -p /srv/tftp
 curl https://deb.debian.org/debian/dists/stable/main/installer-amd64/current/images/netboot/netboot.tar.gz
-sudo tar xzf -C /srv/tftp netboot.tar.gz
+sudo tar xzf netboot.tar.gz -C /srv/tftp
 sudo rm -rf netboot.tar.gz
