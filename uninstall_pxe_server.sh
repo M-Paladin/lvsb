@@ -6,4 +6,4 @@
 # curl https://raw.githubusercontent.com/M-Paladin/lvsb/main/uninstall_pxe_server.sh | bash
 
 # Suppression de dnsmasq (DHCP, TFTP)
-sudo apt remove --purge dnsmasq
+sudo apt remove --purge -y dnsmasq
