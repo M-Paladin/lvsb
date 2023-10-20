@@ -1,0 +1,16 @@
+---
+- name: Prepare node to join cluster
+  hosts: new_node
+  tasks:
+    - name: add host "{{ debian_to_proxmox_node }}" to nodes_prepared
+      add_host:
+        name: "{{ debian_to_proxmox_node }}"
+        groups: nodes_prepared
+
+    - name: Set reboot after kernel changed to Proxmox
+      set_fact:
+        pve_reboot_on_kernel_update: true
+      changed_when: false
+
+- import_playbook: prepare_node_common_tasks.yml
+...

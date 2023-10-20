@@ -1,0 +1,21 @@
+---
+- name: Prepare node(s) for Proxmox
+  hosts: nodes_prepared
+  tasks:
+    - name: Find disk for Ceph OSD
+      shell: lsblk -brdn -x SIZE -o NAME | sed -n '2p'
+      register: disk_for_ceph_osd_output
+      changed_when: false
+
+    - name: Store Ceph OSD disk name as a fact
+      set_fact:
+        disk_for_ceph_osd: "/dev/{{ disk_for_ceph_osd_output.stdout }}"
+      changed_when: false
+
+    - name: Wipe Ceph disk
+      shell: |
+        if [[ -n $(lvdisplay) ]]; then lvremove $(lvdisplay | grep VG | awk '{ print $3 }') -f; fi
+        if [[ -n $(vgdisplay) ]]; then vgremove $(vgdisplay | grep Name | awk '{ print $3 }') -f; fi
+        if [[ -n $(pvdisplay) ]]; then pvremove $(pvdisplay | grep 'PV Name' | awk '{ print $3 }') -f; fi
+#      with_items: "{{ disk_for_ceph_osd }}"
+...

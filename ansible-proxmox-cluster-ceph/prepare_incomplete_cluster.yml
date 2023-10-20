@@ -1,0 +1,48 @@
+---
+- name: Prepare cluster to receive changed node
+  hosts: pve_cluster_nodes:!new_node
+  tasks:
+    - name: Find Ceph osd in crush map
+      command: ceph osd crush ls {{ debian_to_proxmox_node }}
+      register: ceph_osd_output
+      ignore_errors: true
+      changed_when: false
+      run_once: true
+
+    - name: Delete old node from Proxmox and Ceph cluster
+      command: "{{ item }}"
+      with_items:
+        - ceph osd destroy {{ ceph_osd_output.stdout }} --force
+        - ceph osd purge {{ ceph_osd_output.stdout }} --force
+      run_once: true
+      when:
+        - ceph_osd_output.rc == 0
+
+
+    - name: Delete old node from Proxmox and Ceph cluster
+      command: "{{ item }}"
+      with_items:
+        - ceph osd crush remove {{ debian_to_proxmox_node }}
+        - ceph mon remove {{ debian_to_proxmox_node }}
+        - sed -i '0,/{{ ansible_default_ipv4.address }}/s///' /etc/pve/ceph.conf
+        - sed -i '/{{ debian_to_proxmox_node }}/,+2d' /etc/pve/ceph.conf
+      run_once: true
+
+    - name: Delete old node from Proxmox and Ceph cluster
+      command: "{{ item }}"
+      with_items:
+        - pvecm delnode {{ debian_to_proxmox_node }}
+      run_once: true
+      ignore_errors: true
+
+    - name: Delete content & directory
+      file:
+        state: absent
+        path: "{{ item }}"
+      with_items:
+        - /etc/pve/nodes/{{ debian_to_proxmox_node }}
+        - /etc/pve/priv/lock/ha_agent_{{ debian_to_proxmox_node }}_lock
+      run_once: true
+
+#        - pveceph mgr destroy {{ debian_to_proxmox_node }}
+...

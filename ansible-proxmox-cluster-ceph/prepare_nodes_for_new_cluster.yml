@@ -1,0 +1,13 @@
+---
+- name: Prepare nodes for new cluster
+  hosts: pve_cluster_nodes
+  tasks:
+    - name: add host from pve_cluster_nodes to nodes_prepared
+      add_host:
+        name: "{{ item }}"
+        groups: nodes_prepared
+      with_items:
+        groups['pve_cluster_nodes']
+        
+- import_playbook: prepare_node_common_tasks.yml
+...

@@ -1,0 +1,9 @@
+---
+all:
+  hosts:
+  children:
+    pve_cluster_nodes:
+      hosts:
+        pve-node-1:
+          ansible_host: 192.168.0.111
+...

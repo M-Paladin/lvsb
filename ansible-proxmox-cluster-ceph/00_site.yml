@@ -1,0 +1,30 @@
+---
+- import_playbook: ntp.yml
+
+- import_playbook: configure_network.yml
+
+- import_playbook: prepare_nodes_for_new_cluster.yml
+  when:
+    - pve_reboot_on_kernel_update is defined
+    - pve_reboot_on_kernel_update == True
+
+- name: add host to new_node
+  hosts: all
+  tasks:
+    - name: add host to new_node
+      add_host:
+        name: "{{ debian_to_proxmox_node }}"
+        groups: new_node
+      when:
+        - debian_to_proxmox_node is defined
+
+- import_playbook: prepare_node_to_join_cluster.yml
+  when:
+    - debian_to_proxmox_node is defined
+
+- import_playbook: prepare_incomplete_cluster.yml
+  when:
+    - debian_to_proxmox_node is defined
+
+- import_playbook: install_proxmox.yml
+...
