@@ -1,0 +1,60 @@
+credentials:
+  system:
+    domainCredentials:
+    - credentials:
+      - basicSSHUserPrivateKey:
+          description: "Private key to access Jenkins Agents"
+          scope: GLOBAL
+          id: "Jenkins_Agent"
+          username: "jenkins"
+          privateKeySource:
+            directEntry:
+              privateKey: "${readFile:${SSH_PRIVATE_KEY_PATH}}"
+
+jenkins:
+  authorizationStrategy:
+    globalMatrix:
+      entries:
+      - user:
+          name: "${JENKINS_ADMIN_ID}"
+          permissions:
+          - "Overall/Administer"
+      - group:
+          name: "authenticated"
+          permissions:
+          - "Overall/Read"
+  labelAtoms:
+  - name: "agent-opentofu-ansible"
+  nodes:
+  - permanent:
+      launcher:
+        ssh:
+          credentialsId: "Jenkins_Agent"
+          host: "${JENKINS_IP}"
+          javaPath: "/opt/java/openjdk/bin/java"
+          port: 2200
+          sshHostKeyVerificationStrategy: "nonVerifyingKeyVerificationStrategy"
+      mode: EXCLUSIVE
+      name: "agent-opentofu-ansible"
+      remoteFS: "/home/jenkins"
+      retentionStrategy: "always"
+  numExecutors: 0
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+      - id: "${JENKINS_ADMIN_ID}"
+        password: "${JENKINS_ADMIN_PASSWORD}"
+
+# security:
+#   queueItemAuthenticator:
+#     authenticators:
+#     - global:
+#         strategy: triggeringUsersAuthorizationStrategy
+
+unclassified:
+  location:
+    url: http://${JENKINS_IP}:8080/
+
+jobs:
+  - file: /var/jenkins_home/jobdsl/jenkins-vm.groovy

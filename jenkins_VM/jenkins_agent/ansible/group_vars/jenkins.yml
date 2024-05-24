@@ -1,0 +1,64 @@
+---
+data_source: "//192.168.0.241/DocCommun/Informatique/git/lvsb/jenkins_VM"
+
+cicd_server:
+  # https://hub.docker.com/r/jenkins/jenkins/tags
+  version: 2.459-alpine-jdk17
+  service_name: jenkins_server
+
+cicd_agent:
+  # https://github.com/jenkinsci/docker-ssh-agent/tags
+  version: 5.37.0-alpine3.19-jdk17
+  service_name: jenkins_agent
+
+services:
+  - name: "{{ cicd_server.service_name }}"
+    dockerfile: |-
+      FROM jenkins/jenkins:{{ cicd_server.version }}
+      COPY --chown=jenkins:jenkins ./{{ cicd_server.service_name }}/plugins.txt /usr/share/jenkins/ref/plugins.txt
+      RUN jenkins-plugin-cli --plugins -f /usr/share/jenkins/ref/plugins.txt
+    image_name: "lvsb/{{ cicd_server.service_name }}:{{ cicd_server.version }}"
+    container_name: "{{ cicd_server.service_name }}"
+    volumes:
+      - "./{{ cicd_server.service_name }}/casc.d:/var/jenkins_home/casc.d/:ro"
+      - "./{{ cicd_server.service_name }}/jobdsl:/var/jenkins_home/jobdsl/:rw"
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment_variables:
+      - "JAVA_OPTS=-Djenkins.install.runSetupWizard=false"
+      - "CASC_JENKINS_CONFIG=/var/jenkins_home/casc.d/casc.yaml"
+      - "SSH_PRIVATE_KEY_PATH=/run/secrets/{{ cicd_server.service_name }}_private_ssh_key"
+      - "JENKINS_ADMIN_ID=admin"
+      - "JENKINS_ADMIN_PASSWORD=password"
+      - "JENKINS_IP={{ ansible_host }}"
+    secrets:
+      - name: "{{ cicd_server.service_name }}_private_ssh_key"
+        file: "./sshkeys/jenkins_server_key"
+
+  - name: "{{ cicd_agent.service_name }}"
+    dockerfile: |-
+      FROM jenkins/ssh-agent:{{ cicd_agent.version }}
+      RUN apk add --update --no-cache python3 curl; \
+          rm -rf /usr/lib/python3.*/EXTERNALLY-MANAGED; \
+          python3 -m ensurepip; \
+          pip3 install --no-cache --upgrade pip ansible jmespath dnspython netaddr; \
+          curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh; \
+          chmod +x install-opentofu.sh; \
+          ./install-opentofu.sh --install-method apk; \
+          rm install-opentofu.sh
+    image_name: "lvsb/{{ cicd_agent.service_name }}:{{ cicd_agent.version }}"
+    container_name: "{{ cicd_agent.service_name }}"
+    volumes:
+      - "./{{ cicd_agent.service_name }}/ansible:/home/jenkins/ansible-playbooks:ro"
+      - "./{{ cicd_agent.service_name }}/opentofu:/home/jenkins/opentofu-proxmox:rw"
+    ports:
+      - "2200:22"
+    environment_variables:
+      - JENKINS_AGENT_SSH_PUBKEY=ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC3/o6LtweHx/uVUmp7IhNc9Lf+tb7RNnezpKWWC/OoLcKlbLUHVkhGnxGVsPV8rF/dqpUhAXcoXA2MhABxpA9D5ys7VizJrOvv6D+JcAx8SJ4VGq9sfzRWjPimeY0anKbdvQbJkywk8t/xs5dxwQU9Q53HsLYA4/n1oUhIArCTnQ7eYoZwuokIoIMgFYhmyytQcM4C1IHnd3ukyLVD6C5uBcdgcxjS7YbHkOckv0KoKQfTgYFvQ6sHUbfN1+hHJZliTKS+wTXwS+wXYawV2uDtgdnsBJW7wvF3kwnzdDOHfH62yxIg3LQXJoGXoH8jNnB0xe5vHHB+drmKFN6ZAAlw7xRH+/MwBrUC7TkQNwwPuTEAJffp1gGwEn9aeWeEB2L7bCETMTBopc3rvMJlZoLHn6NE1lGY6MwqPrKdcm6BxanGAqQFK/OBzYRwBq2ZBHZE/kTCx8rGjGJ5qjm8os0lHX0FnTXoAGD2nkXrjRbD/M6ijmNC3NTGbBQx2A3iP8c=
+      - JAVA_HOME=/opt/java/openjdk/bin/java
+    secrets:
+      - name: "{{ cicd_agent.service_name }}_private_ssh_key"
+        file: ./sshkeys/jenkins_agent_key
+
+...

@@ -1,0 +1,28 @@
+---
+pve_group: pve_cluster_nodes
+pve_cluster_enabled: yes
+pve_cluster_clustername: "pve-cluster"
+pve_ceph_enabled: true
+pve_ceph_osds:
+  - device: "{{ disk_for_ceph_osd }}"
+pve_ceph_crush_rules:
+  - name: replicated_rule
+    type: osd
+pve_ceph_pools:
+  - name: CephStorage
+    pgs: 32
+    rule: replicated_rule
+    application: rbd
+    storage: true
+    autoscale_mode: "on"
+pve_storages:
+  - name: CephStorage
+    type: rbd
+    content: 
+      - "images"
+      - "rootdir"
+    pool: CephStorage
+pve_datacenter_cfg:
+  keyboard: fr
+interfaces_template: "network-interfaces.j2"
+...

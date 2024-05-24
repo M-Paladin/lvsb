@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+auto lo
+iface lo inet loopback
+
+iface {{ physical_interface }} inet manual
+
+auto vmbr0
+iface vmbr0 inet static
+    address {{ ansible_default_ipv4.address }}/24
+    gateway {{ gateway }}
+    bridge_ports {{ physical_interface }}
+    bridge_stp off
+    bridge_fd 0

@@ -1,0 +1,35 @@
+#cloud-config
+hostname: ${hostname}
+local-hostname: ${hostname}
+fqdn: ${hostname}.${dns_domain}
+manage_etc_hosts: true
+
+#package_upgrade: true
+packages:
+  - qemu-guest-agent
+
+# Make sure qemu-guest-agent is running
+runcmd:
+    - systemctl start qemu-guest-agent
+    
+timezone: Europe/Helsinki
+
+users:
+  - name: ${username}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-rsa ${sshpubkey_jenkins_agent}
+
+# power_state:
+#     delay: now
+#     mode: reboot
+#     message: Rebooting after cloud-init completion
+#     condition: true
+
+chpasswd:
+  list: |
+    root:lvsb
+  expire: False
+
+final_message: "virtual machine linux version and date : ${vm_version_date}"

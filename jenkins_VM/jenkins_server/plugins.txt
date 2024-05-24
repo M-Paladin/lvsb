@@ -1,0 +1,16 @@
+ansible:latest
+ansicolor:latest
+antisamy-markup-formatter:latest
+configuration-as-code:latest
+credentials-binding:latest
+email-ext:latest
+git:latest
+job-dsl:latest
+mailer:latest
+matrix-auth:latest
+pam-auth:latest
+pipeline-stage-view:latest
+ssh-slaves:latest
+timestamper:latest
+workflow-aggregator:latest
+ws-cleanup:latest

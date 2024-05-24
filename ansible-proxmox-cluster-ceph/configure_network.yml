@@ -1,0 +1,39 @@
+---
+- name: Configure network config file
+  hosts: pve_cluster_nodes
+  serial: 1
+  tasks:
+    - name: Install bridge-utils
+      apt:
+        name: bridge-utils
+
+    - name: Find physical interface name and set fact
+      set_fact:
+        physical_interface: "{{ hostvars[inventory_hostname]['ansible_' + item]['device'] }}"
+      when:
+        - hostvars[inventory_hostname]['ansible_' + item].type == "ether"
+      with_items:
+        - "{{ ansible_interfaces }}"
+
+    - name: Configure /etc/network/interfaces
+      template:
+        src: "{{ interfaces_template }}"
+        dest: /etc/network/interfaces
+      register: _configure_interfaces
+
+    - name: Add 127.0.1.1 entry in /etc/hosts with fqdn
+      lineinfile:
+        dest: /etc/hosts
+        line: "127.0.1.1  {{ ansible_facts.hostname }}.{{ ansible_facts.dns.domain }} {{ ansible_facts.hostname }}"
+
+    - block:
+      - name: Reboot for networking changes
+        shell: "sleep 5 && shutdown -r now 'Networking changes found, rebooting'"
+        async: 1
+        poll: 0
+
+      - name: Wait for server to come back online
+        wait_for_connection:
+          delay: 15
+      when: _configure_interfaces is changed
+...

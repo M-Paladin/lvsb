@@ -1,0 +1,104 @@
+---
+- name: Configure VM with dockerized Jenkins, Ansible and Opentofu (2 agents)
+  hosts: "{{ host }}"
+  remote_user: jenkins
+  become: true
+
+  vars:
+    posix_users:
+    - name: 'ludovic'
+      groups: 'DocLudoRW, DocStephRO, DocCommunRW'
+      smbpasswd: 'ludovic'
+      uid: 1001
+    - name: 'stephanie'
+      groups: 'DocLudoRO, DocStephRW, DocCommunRW'
+      smbpasswd: 'stephanie'
+      uid: 1002
+
+    posix_default_usergroup:
+    - name: 'users'
+      gid: 2000
+
+    posix_groups:
+    - name: DocLudo
+      gid: 2001
+    - name: DocSteph
+      gid: 2002
+    - name: DocCommun
+      gid: 2003
+
+    samba_rights:
+    - RO
+    - RW
+
+  tasks:
+    - name: Linux users and groups
+      block:
+      - name: Linux users and groups - Create all users group
+        ansible.builtin.group:
+          name: "{{ posix_default_usergroup.name }}"
+          
+
+      - name: Linux users and groups - Create groups
+        ansible.builtin.group:
+          name: "{{ item.0 }}{{ item.1 }}"
+        loop: "{{ posix_groups.name|product(samba_rights)|list }}"
+
+      - name: Linux users and groups - Create users
+        ansible.builtin.user:
+          name: "{{ item.name }}"
+          group: "{{ posix_default_usergroup.name }}"
+          groups: "{{ item.groups }}"
+          append: true
+          update_password: on_create
+          shell: "/sbin/nologin"
+          create_home: false 
+        loop: "{{ posix_users }}"
+
+    - name: Create shared folders
+      ansible.builtin.file:
+        path: "/srv/samba/{{ item }}"
+        state: directory
+        group: "users"
+        mode: u=rwx,g=rwx,o=x,g+s
+      loop: "{{ posix_groups.name }}"
+
+    - name: Samba
+      block:
+      - name: Samba - Install packages
+        ansible.builtin.apt:
+          name: "{{ item }}"
+        loop:
+          - samba
+
+      - name: Samba - Stop netbios service
+        ansible.builtin.service:
+          name: nmbd
+          state: stopped
+          enabled: false
+
+      - name: Samba - Create users
+        include_tasks: "samba_users.yml"
+        loop: "{{ posix_users }}"
+
+      - name: Samba - Update users
+        include_tasks: "samba_users.yml"
+        loop: "{{ posix_users }}"
+
+      - name: Samba - Configuring shares
+        ansible.builtin.template:
+          src: smb.conf.j2
+          dest: /etc/samba/smb.conf
+          owner: root
+          group: root
+          mode: 0644
+        notify:
+          - Samba - Restart service
+
+  handlers:
+    - name: Samba - Restart service
+      service:
+        name: smbd
+        state: restarted
+        enabled: false
+...

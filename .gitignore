@@ -1,0 +1,13 @@
+.vscode/
+sshkeys/
+docker-compose*
+*.auto.tfvars
+.terraform/
+*terraform*
+credentials/
+
+# to remove later
+127.0.0.1.yml
+*test.yml
+Dockerfile
+archives/

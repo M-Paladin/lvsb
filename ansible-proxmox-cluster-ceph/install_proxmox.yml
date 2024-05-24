@@ -1,0 +1,6 @@
+---
+- name: Install Proxmox
+  hosts: pve_cluster_nodes
+  roles:
+    - role: lae.proxmox
+...

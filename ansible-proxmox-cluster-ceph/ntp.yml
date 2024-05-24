@@ -1,0 +1,6 @@
+---
+- name: Configure NTP
+  hosts: ntp_clients
+  roles:
+    - geerlingguy.ntp  
+...

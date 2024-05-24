@@ -1,0 +1,17 @@
+---
+all:
+  hosts:
+  children:
+    jenkins:
+      hosts:
+        jenkins-1:
+          ansible_host: 192.168.0.61
+        jenkins-2:
+          ansible_host: 192.168.0.62
+    samba:
+      hosts:
+        samba-1:
+          ansible_host: 192.168.0.63
+        samba-2:
+          ansible_host: 192.168.0.64
+...

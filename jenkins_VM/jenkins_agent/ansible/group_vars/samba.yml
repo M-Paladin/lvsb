@@ -1,0 +1,31 @@
+---
+service:
+  - name: samba
+    build: false
+    image_name: ghcr.io/servercontainers/samba
+
+
+    volumes:
+      - ./resources/casc.d:/var/jenkins_home/casc.d/:ro
+      - ./resources/jobdsl:/var/jenkins_home/jobdsl/:rw
+    ports:
+      - 8080:8080
+      - 50000:50000
+    environment_variables:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - CASC_JENKINS_CONFIG=/var/jenkins_home/casc.d/casc.yaml
+      - SSH_PRIVATE_KEY_PATH=/run/secrets/private_ssh_key
+      - JENKINS_ADMIN_ID=admin
+      - JENKINS_ADMIN_PASSWORD=password
+    private_ssh_key: ../sshkeys/jenkins_server_key
+
+  - name: jenkins-agent
+    volumes:
+      - ./resources/ansible:/home/jenkins/ansible-playbooks:ro
+      - ./resources/opentofu:/home/jenkins/opentofu-proxmox:rw
+    ports:
+      - "2200:22"
+    environment_variables:
+      - JENKINS_AGENT_SSH_PUBKEY=ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC3/o6LtweHx/uVUmp7IhNc9Lf+tb7RNnezpKWWC/OoLcKlbLUHVkhGnxGVsPV8rF/dqpUhAXcoXA2MhABxpA9D5ys7VizJrOvv6D+JcAx8SJ4VGq9sfzRWjPimeY0anKbdvQbJkywk8t/xs5dxwQU9Q53HsLYA4/n1oUhIArCTnQ7eYoZwuokIoIMgFYhmyytQcM4C1IHnd3ukyLVD6C5uBcdgcxjS7YbHkOckv0KoKQfTgYFvQ6sHUbfN1+hHJZliTKS+wTXwS+wXYawV2uDtgdnsBJW7wvF3kwnzdDOHfH62yxIg3LQXJoGXoH8jNnB0xe5vHHB+drmKFN6ZAAlw7xRH+/MwBrUC7TkQNwwPuTEAJffp1gGwEn9aeWeEB2L7bCETMTBopc3rvMJlZoLHn6NE1lGY6MwqPrKdcm6BxanGAqQFK/OBzYRwBq2ZBHZE/kTCx8rGjGJ5qjm8os0lHX0FnTXoAGD2nkXrjRbD/M6ijmNC3NTGbBQx2A3iP8c=
+      - JAVA_HOME=/opt/java/openjdk/bin/java
+    private_ssh_key: ../sshkeys/jenkins_agent_key
