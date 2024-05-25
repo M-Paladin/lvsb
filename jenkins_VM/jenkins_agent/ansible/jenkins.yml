@@ -5,22 +5,20 @@
   become: true
 
   tasks:
-    - name: Install Docker apt repository
-      block:
-        - name: Docker repository - Download gpg key
-          ansible.builtin.get_url:
-            url: https://download.docker.com/linux/debian/gpg
-            dest: /etc/apt/keyrings/docker.asc
-            mode: 'a+r'
+    - name: Docker/Install - Download repository gpg key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: 'a+r'
 
-        - name: Docker repository - Add
-          ansible.builtin.apt_repository:
-            repo: >-
-              deb [arch=x86_64 signed-by=/etc/apt/keyrings/docker.asc]
-              https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable
-            filename: docker
+    - name: Docker/Install - Add apt repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable
+        filename: docker
 
-    - name: Debian packages - Install required
+    - name: Debian - Install required packages
       ansible.builtin.package:
         name: "{{ item }}"
       loop:
@@ -28,9 +26,7 @@
         - python3-docker
         - cifs-utils
 
-    # - name: Configure Docker
-    #   block:
-    - name: Docker - Add jenkins user to group
+    - name: Docker/Install - Add jenkins user to group
       ansible.builtin.user:
         name: "{{ ansible_user }}"
         groups: docker
@@ -45,93 +41,87 @@
         volumes: true
         builder_cache: true
 
-    - name: Create mount point and mount CIFS volume
-      block:
-        - name: CIFS - Mount needed datas for container on host
-          ansible.posix.mount:
-            src: "{{ data_source }}"
-            path: "{{ data_mountpoint }}"
-            opts: "rw,credentials=./credentials/.nas_credentials,uid=1000,gid=1000"
-            state: mounted
-            fstype: cifs
+    - name: CIFS mount - Create /home/jenkins/.cifs directory
+      file: 
+        path: "/home/jenkins/.cifs"
+        state: directory
+        mode: '0700'
 
-        - name: CIFS - Mount needed sshkeys for container on host
-          ansible.posix.mount:
-            src: "{{ data_source }}/sshkeys"
-            path: "{{ data_mountpoint }}/sshkeys"
-            opts: "rw,credentials=./credentials/.nas_credentials,uid=1000,gid=1000,file_mode=0400"
-            state: mounted
-            fstype: cifs
+    - name: CIFS mount - Copy credentials file
+      ansible.builtin.copy:
+        src: /run/secrets/cifs_credentials
+        dest: /home/jenkins/.cifs/credentials
+        owner: jenkins
+        group: jenkins
+        mode: '0600'
 
-    - name: Install Jenkins server and agents
-      block:
-        - name: Jenkins - Create docker-compose files for server and agent
-          ansible.builtin.template:
-            src: ./templates/docker-compose.yml.j2
-            dest: "{{ data_mountpoint }}/docker-compose-{{ host }}.yml"
-            lstrip_blocks: yes
-        #   dest: "{{ data_mountpoint }}/{{ item.name }}/docker-compose-{{ host }}.yml"
-        #   loop: "{{ service }}"
-        #   loop_control:
-        #     label: "{{ item.name }}"
+    - name: CIFS mount - Mount needed datas for container on host
+      ansible.posix.mount:
+        src: "{{ data_source }}"
+        path: "{{ data_mountpoint }}"
+        opts: "rw,credentials=/home/jenkins/.cifs/credentials,uid=1000,gid=1000"
+        state: mounted
+        fstype: cifs
 
-        - name: Jenkins - Test plugin site is reachable
-          ansible.builtin.uri:
-            url: https://updates.jenkins.io/update-center.json
+    - name: CIFS mount - Copy ssh private keys file locally
+      ansible.builtin.copy:
+        src: "{{ data_mountpoint }}/sshkeys/{{ item }}"
+        remote_src: true
+        dest: /home/jenkins/.ssh/{{ item }}
+        owner: jenkins
+        group: jenkins
+        mode: '0600'
+      loop:
+        - jenkins_agent_key
+        - jenkins_server_key
 
-        # - name: Jenkins - Destroy server
-        #   community.docker.docker_compose_v2:
-        #     project_src: "{{ data_mountpoint }}/{{ item.name }}"
-        #     files:
-        #       - "{{ data_mountpoint }}/{{ item.name }}/docker-compose-{{ host }}.yml"
-        #     state: absent
-        #   loop:
-        #     - "{{ service[0] }}"
+    - name: Jenkins - Test plugin site is reachable
+      ansible.builtin.uri:
+        url: https://updates.jenkins.io/update-center.json
+        status_code:
+          - 200
+      until: uri_output.status == 200
+      retries: 12
+      delay: 5
+      register: uri_output
+      
+    - name: Docker/Jenkins - Create docker-compose files for server and agent
+      ansible.builtin.template:
+        src: ./templates/docker-compose.yml.j2
+        dest: "{{ data_mountpoint }}/docker-compose-{{ host }}.yml"
+        lstrip_blocks: yes
 
-        - name: Jenkins - Build images and Deploy containers
-          community.docker.docker_compose_v2:
-            project_src: "{{ data_mountpoint }}"
-            files:
-              - "{{ data_mountpoint }}/docker-compose-{{ host }}.yml"
-            # state: "{{ item.state | default('present')}}"
-            build: always
-            remove_orphans: true
-            #recreate: always
-          register: jenkins_service_build_deploy
-          #loop: "{{ service }}"
-          #loop_control:
-          #  label: "{{ item.name }}"
-        - name: Jenkins - Check build and deployment result
-          debug: msg="{{ jenkins_service_build_deploy.stdout_lines }}"
-          #debug: msg="{{ item.stdout_lines }}"
-          #loop: "{{ jenkins_service_build_deploy.results }}"
-          #loop_control:
-          #  label: "{{ item.item.name }}"
-          #when: item.stdout is defined
+    - name: Docker/Jenkins - Build images and Deploy containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ data_mountpoint }}"
+        files:
+          - "{{ data_mountpoint }}/docker-compose-{{ host }}.yml"
+        build: always
+        remove_orphans: true
+      register: jenkins_service_build_deploy
 
-    - name: Reload Jenkins server configuration
-      block:
-        - name: Jenkins server - Wait until HTTP status is 200
-          uri:
-            url: "http://{{ ansible_host }}:8080/login"
-            validate_certs: no
-            status_code:
-              - 200
-          until: uri_output.status == 200
-          retries: 12
-          delay: 5
-          register: uri_output
-          
-        - name: Jenkins server - Download jenkins-cli.jar in container
-          community.docker.docker_container_exec:
-            container: "{{ cicd_server.service_name }}"
-            command: curl -o /tmp/jenkins-cli.jar http://{{ ansible_host }}:8080/jnlpJars/jenkins-cli.jar
+    - name: Docker/Jenkins - Check build and deployment result
+      debug: msg="{{ jenkins_service_build_deploy.stdout_lines }}"
 
-        - name: Jenkins server - Reload server configuration from cli in container
-          community.docker.docker_container_exec:
-            container: "{{ cicd_server.service_name }}"
-            command: java -jar /tmp/jenkins-cli.jar -s http://{{ ansible_host }}:8080/ -auth "admin:password" reload-jcasc-configuration
-          register: jenkins_config_reload
-        #- debug: msg="{{ jenkins_config_reload }}"
+    - name: Jenkins server - Wait until HTTP status is 200
+      uri:
+        url: "http://{{ ansible_host }}:8080/login"
+        validate_certs: no
+        status_code:
+          - 200
+      until: uri_output.status == 200
+      retries: 12
+      delay: 5
+      register: uri_output
+      
+    - name: Jenkins server - Download jenkins-cli.jar in container
+      community.docker.docker_container_exec:
+        container: "{{ cicd_server.service_name }}"
+        command: curl -o /tmp/jenkins-cli.jar http://{{ ansible_host }}:8080/jnlpJars/jenkins-cli.jar
 
+    - name: Jenkins server - Reload server configuration from cli in container
+      community.docker.docker_container_exec:
+        container: "{{ cicd_server.service_name }}"
+        command: java -jar /tmp/jenkins-cli.jar -s http://{{ ansible_host }}:8080/ -auth "admin:password" reload-jcasc-configuration
+      register: jenkins_config_reload
 ...
