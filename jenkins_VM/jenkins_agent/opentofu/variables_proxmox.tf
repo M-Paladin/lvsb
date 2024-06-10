@@ -21,3 +21,8 @@ variable "proxmox_api_token" {
   description = "Proxmox Virtual Environment API token (example: USER@REALM!TOKENID=UUID)"
   default     = "root@pam!terraform=token_uuid"
 }
+
+variable "proxmox_nodes" {
+  type        = map(string)
+  description = "Proxmox Virtual Environment nodes and IPs"
+}

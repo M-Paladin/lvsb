@@ -1,0 +1,34 @@
+# create new
+global_defs {
+    # set hostname
+    router_id {{ host }}
+}
+
+vrrp_instance VRRP1 {
+    # on primary node, specify [MASTER]
+    # on backup node, specify [BACKUP]
+    # if specified [BACKUP] + [nopreempt] on all nodes, automatic failback is disabled
+    state {{ vrrp_state }}
+    # if you like disable automatic failback, set this value with [BACKUP]
+    {%+ if vrrp_state == 'MASTER' %}# {% endif %}nopreempt
+    # network interface that virtual IP address is assigned
+    interface eth0
+    # set unique ID on each VRRP interface
+    # on the a VRRP interface, set the same ID on all nodes
+    virtual_router_id 101
+    # set priority : [Master] > [BACKUP]
+    priority {{ vrrp_priority }}
+    # VRRP advertisement interval (sec)
+    advert_int 1
+    # use_vmac_addr is used to create VMAC (macvlan) interfaces for
+    # each interface that is used by a VIP or eVIP where the interface
+    # is not the same as the interface on which the VRRP instance is
+    # configured or the eVIP's address family does not match the VRRP
+    # use_vmac
+    # Transmit VRRP adverts over physical interface
+    # vmac_xmit_base         
+    # virtual IP address
+    virtual_ipaddress {
+        {{ vrrp_vip }}
+    }
+}

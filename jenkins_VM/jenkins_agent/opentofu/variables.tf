@@ -1,15 +1,102 @@
+###
+#  Cloud Images
+###
+variable "cloud_images" {
+  description = <<-EOT
+    List of cloud images
+    hostname: Virtual Machine hostname
+    {
+      node_name             : Target Proxmox node for Template Machine
+      content_type          : Content type (iso or vztmpl)
+      img_url               : Linux Cloud Image URL
+      img_checksum          : Linux Cloud Image checksum
+      img_checksum_algorythm: Linux Cloud Image checksum algorythm
+      img_file_name         : Linux Cloud Image target file name
+      datastore_disk        : Storage used for VM disk
+    }
+  EOT
+  type = map(object({
+    node_name              = string
+    content_type           = string
+    img_url                = string
+    img_checksum           = optional(string, null)
+    img_checksum_algorythm = optional(string, null)
+    img_file_name          = optional(string, null)
+    datastore_disk         = string
+  }))
+}
+
+###
+#  Templates
+###
+variable "virtual_machine_templates" {
+  description = <<-EOT
+    List of templates
+    hostname: TemplateMachine hostname
+    {
+      node_name             : Target Proxmox node for Template Machine
+      memory                : Template Machine memory amount
+      disk_size             : Template Machine disk size (in GB)
+      tags                  : Template Machine tags list
+      template_id           : Template Machine id
+      datastore_disk        : Storage used for VM disk
+      cloud_image           : Image used to create the template
+    }
+  EOT
+  type = map(object({
+    node_name      = string
+    memory         = number
+    disk_size      = number
+    tags           = list(string)
+    template_id    = number
+    datastore_disk = string
+    cloud_image    = string
+  }))
+}
+
+# variable "lxc_container_templates" {
+#   description = <<-EOT
+#     List of templates
+#     hostname: TemplateMachine hostname
+#     {
+#       node_name             : Target Proxmox node for Template Machine
+#       memory                : Template Machine memory amount
+#       disk_size             : Template Machine disk size (in GB)
+#       tags                  : Template Machine tags list
+#       template_id           : Template Machine id
+#       datastore_disk        : Storage used for VM disk
+#       cloud_image           : Image used to create the template
+#     }
+#   EOT
+#   type = map(object({
+#     node_name      = string
+#     memory         = number
+#     disk_size      = number
+#     tags           = list(string)
+#     template_id    = number
+#     datastore_disk = string
+#     cloud_image    = string
+#   }))
+# }
+
+###
+#  Machines
+###
 variable "virtual_machines" {
   description = <<-EOT
     List of virtual machines
     hostname: Virtual Machine hostname
     {
-      node_name   : Target Proxmox node for Virtual Machine
-      memory      : Virtual Machine memory amount
-      disk_size   : Virtual Machine disk size (in GB)
-      tags        : Virtual Machine tags list
-      template_id : Template id for Virtual Machine
-      ip          : IP address CIDR format (ex : 192.168.0.1/24)
-      version_date: When this information changes the machine will be recreated
+      node_name     : Target Proxmox node for Virtual Machine
+      memory        : Virtual Machine memory amount
+      disk_size     : Virtual Machine disk size (in GB)
+      tags          : Virtual Machine tags list
+      template_id   : Template id for Virtual Machine
+      ip            : IP address CIDR format (ex : 192.168.0.1/24)
+      version_date  : When this information changes the machine will be recreated
+      datastore_disk: Storage used for VM disk
+      raw_disk_path : Dev path for the disk (mainly used for passthrough)
+      #disk_serial   : Serial number of above disk
     }
   EOT
   type = map(object({
@@ -22,34 +109,37 @@ variable "virtual_machines" {
     version_date   = string
     datastore_disk = string
     raw_disk_path  = optional(string, null)
+    #disk_serial    = optional(string, null)
   }))
 }
-variable "templates" {
-  description = <<-EOT
-    List of templates
-    hostname: Virtual Machine hostname
-    {
-      node_name             : Target Proxmox node for Template Machine
-      memory                : Template Machine memory amount
-      disk_size             : Template Machine disk size (in GB)
-      tags                  : Template Machine tags list
-      template_id           : Template Machine id
-      img_url               : Linux Cloud Image URL
-      img_checksum          : Linux Cloud Image checksum
-      img_file_name         : Linux Cloud Image checksum algorythm
-      img_checksum_algorythm: Linux Cloud Image target file name
-    }
-  EOT
-  type = map(object({
-    node_name              = string
-    memory                 = number
-    disk_size              = number
-    tags                   = list(string)
-    template_id            = number
-    img_url                = string
-    img_checksum           = string
-    img_file_name          = string
-    img_checksum_algorythm = string
-    datastore_disk         = string
-  }))
-}
+
+# variable "lxc_containers" {
+#   description = <<-EOT
+#     List of containers
+#     hostname: Container hostname
+#     {
+#       node_name     : Target Proxmox node for Container
+#       memory        : Container memory amount
+#       disk_size     : Container disk size (in GB)
+#       tags          : Container tags list
+#       # template_id   : Template id for Container
+#       ip            : IP address CIDR format (ex : 192.168.0.1/24)
+#       version_date  : When this information changes the machine will be recreated
+#       datastore_disk: Storage used for container disk
+#       cloud_image_id: Image ID used to create the container (storage:type/image_name)
+#     }
+#   EOT
+#   type = map(object({
+#     node_name = string
+#     memory    = number
+#     disk_size = number
+#     tags      = list(string)
+#     # template_id    = number
+#     ip             = string
+#     version_date   = string
+#     datastore_disk = string
+#     cloud_image_id = string
+#   }))
+# }
+
+

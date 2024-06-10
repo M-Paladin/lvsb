@@ -17,19 +17,24 @@ create mask = 0777
 directory mask = 0777
 use sendfile = yes
 disable netbios = yes
+server min protocol = SMB3_00
+pam password change = yes
+restrict anonymous = 2
+case sensitive = yes
+preserve case = yes
 
 #======================= Share Definitions =======================
-{% for shared in posix_groups %}
-[{{ shared }}]
+{% for share in users_groups %}
+[{{ share.name }}]
 read only = no
 browseable = yes
 inherit acls = yes
 inherit permissions = yes
 ea support = no
-path = /srv/samba/{{ shared }}
-read list = @"{{ shared }}RO"
-write list = @"{{ shared }}RW"
-valid users = @"{{ shared }}RO",@"{{ shared }}RW"
+path = {{ data_source }}/{{ share.name }}
+read list = @"{{ share.name }}RO"
+write list = @"{{ share.name }}RW"
+valid users = @"{{ share.name }}RO",@"{{ share.name }}RW"
 recycle:repository = .recycle/%U
 recycle:keeptree = yes
 recycle:versions = yes
@@ -46,5 +51,6 @@ force create mode = 0664
 directory mask = 0775
 force directory mode = 0775
 hide special files = yes
+store dos attributes = yes
 
 {% endfor %}

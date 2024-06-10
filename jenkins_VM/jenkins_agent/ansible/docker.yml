@@ -1,0 +1,43 @@
+---
+- name: Configure Debian VM with docker
+  hosts: "{{ host }}"
+  remote_user: jenkins
+  become: true
+
+  tasks:
+    - name: Docker/Install - Download repository gpg key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: 'a+r'
+
+    - name: Docker/Install - Add apt repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable
+        filename: docker
+
+    - name: Debian - Install required packages
+      ansible.builtin.package:
+        name: "{{ item }}"
+      loop:
+        - docker-ce
+        - python3-docker
+        - cifs-utils
+
+    - name: Docker/Install - Add jenkins user to group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Docker - Prune resources
+      community.docker.docker_prune:
+        containers: true
+        images: true
+        images_filters:
+          dangling: false
+        volumes: true
+        builder_cache: true
+...
