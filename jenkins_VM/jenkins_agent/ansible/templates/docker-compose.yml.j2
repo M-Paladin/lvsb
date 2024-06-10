@@ -1,0 +1,50 @@
+{% set secrets_property = namespace(found=false) %}
+services:
+{% for service in services %}
+  {{ service.name }}:
+    {# Test if docker image needs to be built #}
+    {% if service.dockerfile is defined %}
+    build:
+      context: .
+      dockerfile_inline: |
+{{ service.dockerfile | indent(8, true) }}
+    {% endif %}
+    image: {{ service.image_name }}
+    restart: unless-stopped
+    container_name: {{ service.container_name }}
+    {% if service.volumes is defined %}
+    volumes:
+      {% for volume in service.volumes %}
+      - {{ volume }}
+      {% endfor %}
+    {% endif %}
+    {% if service.ports is defined %}
+    ports:
+      {% for port in service.ports %}
+      - {{ port }}
+      {% endfor %}
+    {% endif %}
+    {% if service.environment_variables is defined %}
+    environment:
+      {% for environment_variable in service.environment_variables %}
+      - {{ environment_variable }}
+      {% endfor %}
+    {% endif %}
+    {% if service.secrets is defined %}
+    secrets:
+      {% set secrets_property.found = true %}
+      {% for secret in service.secrets %}
+      - {{ secret.name }}
+      {% endfor %}
+    {% endif %}
+{% endfor %}
+
+{% if secrets_property.found %}
+secrets:
+  {% for service in services %}
+    {% for secret in service.secrets %}
+  {{ secret.name }}:
+    file: {{ secret.file }}
+    {% endfor %}
+  {% endfor %}
+{% endif %}

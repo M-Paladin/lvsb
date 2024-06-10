@@ -1,6 +1,6 @@
 ---
 ansible_user: "jenkins"
-ansible_ssh_private_key_file: "/run/secrets/{{ cicd_agent.service_name }}_private_ssh_key"
+ansible_ssh_private_key_file: "/run/secrets/{{ hostvars['jenkins-1']['cicd_agent']['service_name'] }}_private_ssh_key"
 ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 data_mountpoint: "/srv/cifs"

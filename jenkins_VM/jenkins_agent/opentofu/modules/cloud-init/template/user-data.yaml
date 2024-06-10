@@ -10,7 +10,7 @@ packages:
 
 # Make sure qemu-guest-agent is running
 runcmd:
-    - systemctl start qemu-guest-agent
+  - systemctl start qemu-guest-agent
     
 timezone: Europe/Helsinki
 

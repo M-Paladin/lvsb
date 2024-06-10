@@ -1,6 +1,6 @@
 .vscode/
 sshkeys/
-docker-compose*
+docker-compose-*
 *.auto.tfvars
 .terraform/
 *terraform*

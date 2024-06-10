@@ -1,11 +1,12 @@
 resource "proxmox_virtual_environment_vm" "this" {
-  name       = "${var.virtual_machine_hostname}.${var.virtual_machine_dns_domain}"
+  name       = var.virtual_machine_hostname
   node_name  = var.virtual_machine_node_name
   boot_order = ["scsi0"]
   on_boot    = !var.virtual_machine_is_template
   vm_id      = var.virtual_machine_is_template ? var.virtual_machine_template_id : null
   tags       = var.virtual_machine_tags
   template   = var.virtual_machine_is_template
+  migrate    = true
 
   cpu {
     architecture = "x86_64"
@@ -21,9 +22,12 @@ resource "proxmox_virtual_environment_vm" "this" {
     enabled = !var.virtual_machine_is_template
   }
 
-  network_device {
-    bridge      = "vmbr0"
-    queues      = var.virtual_machine_cpu_cores
+  dynamic network_device {
+    for_each = var.virtual_machine_is_template ? [] : [ "vm is not a template" ]
+      content {
+      bridge      = "vmbr0"
+      queues      = var.virtual_machine_cpu_cores
+    }
   }
 
   scsi_hardware = "virtio-scsi-single"
@@ -38,7 +42,7 @@ resource "proxmox_virtual_environment_vm" "this" {
   }
 
   # Direct attached Data disk
-  dynamic "disk" {
+  dynamic disk {
     for_each = coalesce(var.virtual_machine_raw_disk_path,"no_disk") == "no_disk" ? [] : [ "vm is a NAS"  ]
 
     content {

@@ -1,104 +1,134 @@
 ---
-- name: Configure VM with dockerized Jenkins, Ansible and Opentofu (2 agents)
+- ansible.builtin.import_playbook: docker.yml
+
+- name: Configure VM with Samba
   hosts: "{{ host }}"
   remote_user: jenkins
   become: true
 
-  vars:
-    posix_users:
-    - name: 'ludovic'
-      groups: 'DocLudoRW, DocStephRO, DocCommunRW'
-      smbpasswd: 'ludovic'
-      uid: 1001
-    - name: 'stephanie'
-      groups: 'DocLudoRO, DocStephRW, DocCommunRW'
-      smbpasswd: 'stephanie'
-      uid: 1002
-
-    posix_default_usergroup:
-    - name: 'users'
-      gid: 2000
-
-    posix_groups:
-    - name: DocLudo
-      gid: 2001
-    - name: DocSteph
-      gid: 2002
-    - name: DocCommun
-      gid: 2003
-
-    samba_rights:
-    - RO
-    - RW
-
   tasks:
-    - name: Linux users and groups
-      block:
-      - name: Linux users and groups - Create all users group
-        ansible.builtin.group:
-          name: "{{ posix_default_usergroup.name }}"
-          
+    - name: Linux users and groups - Create groups
+      ansible.builtin.group:
+        name: "{{ item.0.name }}{{ item.1.name }}"
+        gid: "{{ item.0.gid + item.1.base_value }}"
+      loop: "{{ users_groups | product(gid) }}"
+      loop_control:
+        label: "{{ item.0.name }}{{ item.1.name }}"
 
-      - name: Linux users and groups - Create groups
-        ansible.builtin.group:
-          name: "{{ item.0 }}{{ item.1 }}"
-        loop: "{{ posix_groups.name|product(samba_rights)|list }}"
+    - name: Linux users and groups - Create users
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        group: "{{ users_default_group }}"
+        groups: "{{ item.groups }}"
+        append: true
+        update_password: on_create
+        shell: "/sbin/nologin"
+        create_home: false
+        uid: "{{ item.uid }}"
+      loop: "{{ users_account }}"
+      loop_control:
+        label: "{{ item.name }}"
 
-      - name: Linux users and groups - Create users
-        ansible.builtin.user:
-          name: "{{ item.name }}"
-          group: "{{ posix_default_usergroup.name }}"
-          groups: "{{ item.groups }}"
-          append: true
-          update_password: on_create
-          shell: "/sbin/nologin"
-          create_home: false 
-        loop: "{{ posix_users }}"
+    - name: Debian - Mount hard disk
+      ansible.posix.mount:
+        path: "{{ data_source }}"
+        src: "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1-part1"
+        fstype: ext4
+        state: mounted
 
-    - name: Create shared folders
+    - name: Debian - Create shared folders
       ansible.builtin.file:
-        path: "/srv/samba/{{ item }}"
+        path: "{{ data_source }}/{{ item.name }}"
         state: directory
         group: "users"
         mode: u=rwx,g=rwx,o=x,g+s
-      loop: "{{ posix_groups.name }}"
+      loop: "{{ users_groups }}"
+      loop_control:
+        label: "{{ data_source }}/{{ item.name }}"
 
-    - name: Samba
-      block:
-      - name: Samba - Install packages
-        ansible.builtin.apt:
-          name: "{{ item }}"
-        loop:
-          - samba
+    - name: Samba - Install packages
+      ansible.builtin.apt:
+        name: "{{ item }}"
+      loop:
+        - samba
+        - keepalived
 
-      - name: Samba - Stop netbios service
-        ansible.builtin.service:
-          name: nmbd
-          state: stopped
-          enabled: false
+    - name: Samba - Stop netbios service
+      ansible.builtin.service:
+        name: nmbd
+        state: stopped
+        enabled: false
+    
+    - name: Samba - Create users
+      ansible.builtin.shell:
+        cmd: |
+          echo -e '\n\n' | pdbedit -at {{ item.name }}
+          pdbedit -u {{ item.name }} --set-nt-hash {{ item.passwd_hash }}
+      args:
+        executable: /bin/bash
+      loop: "{{ users_account }}"
+      loop_control:
+        label: "{{ item.name }}"
 
-      - name: Samba - Create users
-        include_tasks: "samba_users.yml"
-        loop: "{{ posix_users }}"
+    - name: Samba - Create configuration file
+      ansible.builtin.template:
+        src: smb.conf.j2
+        dest: /etc/samba/smb.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify:
+        - Samba - Restart service
 
-      - name: Samba - Update users
-        include_tasks: "samba_users.yml"
-        loop: "{{ posix_users }}"
+    - name: Keepalived - Create configuration file
+      ansible.builtin.template:
+        src: "./templates/keepalived.conf.j2"
+        dest: "/etc/keepalived/keepalived.conf"
+        owner: root
+        group: root
+        mode: 0644
+        lstrip_blocks: yes
+      notify:
+        - Keepalived - Restart service
 
-      - name: Samba - Configuring shares
-        ansible.builtin.template:
-          src: smb.conf.j2
-          dest: /etc/samba/smb.conf
-          owner: root
-          group: root
-          mode: 0644
-        notify:
-          - Samba - Restart service
+    - name: Docker/Syncthing - Create docker-compose file
+      ansible.builtin.template:
+        src: ./templates/docker-compose.yml.j2
+        dest: "/home/jenkins/docker-compose-{{ host }}.yml"
+        lstrip_blocks: yes
+
+    - name: Docker/Syncthing - Create config folder
+      ansible.builtin.file:
+        path: "{{ data_source }}/Informatique/Config/{{ inventory_hostname }}"
+        state: directory
+        owner: "nas_user"
+        group: "users"
+      loop:
+        - "{{ data_source }}/Informatique/Config"
+        - "{{ data_source }}/Informatique/Config/{{ inventory_hostname }}"
+
+    - name: Docker/Syncthing - Build images and Deploy containers
+      community.docker.docker_compose_v2:
+        project_src: "/home/jenkins"
+        files:
+          - "/home/jenkins/docker-compose-{{ host }}.yml"
+        build: always
+        remove_orphans: true
+      # register: jenkins_service_build_deploy
+
+    # - name: Docker/Syncthing - Check build and deployment result
+    #   debug: msg="{{ jenkins_service_build_deploy.stdout_lines }}"
 
   handlers:
     - name: Samba - Restart service
-      service:
+      ansible.builtin.service:
         name: smbd
         state: restarted
-        enabled: false
+        enabled: true
+
+    - name: Keepalived - Restart service
+      ansible.builtin.service:
+        name: keepalived
+        state: restarted
+        enabled: true
 ...

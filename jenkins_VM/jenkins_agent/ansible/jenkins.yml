@@ -1,49 +1,17 @@
 ---
+- ansible.builtin.import_playbook: docker.yml
+
 - name: Configure Debian VM with dockerized Jenkins, 1 server and 1 agent (Ansible and Opentofu)
   hosts: "{{ host }}"
   remote_user: jenkins
   become: true
 
   tasks:
-    - name: Docker/Install - Download repository gpg key
-      ansible.builtin.get_url:
-        url: https://download.docker.com/linux/debian/gpg
-        dest: /etc/apt/keyrings/docker.asc
-        mode: 'a+r'
-
-    - name: Docker/Install - Add apt repository
-      ansible.builtin.apt_repository:
-        repo: >-
-          deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc]
-          https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable
-        filename: docker
-
-    - name: Debian - Install required packages
-      ansible.builtin.package:
-        name: "{{ item }}"
-      loop:
-        - docker-ce
-        - python3-docker
-        - cifs-utils
-
-    - name: Docker/Install - Add jenkins user to group
-      ansible.builtin.user:
-        name: "{{ ansible_user }}"
-        groups: docker
-        append: true
-
-    - name: Docker - Prune resources
-      community.docker.docker_prune:
-        containers: true
-        images: true
-        images_filters:
-          dangling: false
-        volumes: true
-        builder_cache: true
-
     - name: CIFS mount - Create /home/jenkins/.cifs directory
-      file: 
+      ansible.builtin.file: 
         path: "/home/jenkins/.cifs"
+        owner: jenkins
+        group: jenkins
         state: directory
         mode: '0700'
 
@@ -59,7 +27,7 @@
       ansible.posix.mount:
         src: "{{ data_source }}"
         path: "{{ data_mountpoint }}"
-        opts: "rw,credentials=/home/jenkins/.cifs/credentials,uid=1000,gid=1000"
+        opts: "rw,credentials=/home/jenkins/.cifs/credentials,uid=1000,gid=100"
         state: mounted
         fstype: cifs
 
@@ -85,7 +53,7 @@
       delay: 5
       register: uri_output
       
-    - name: Docker/Jenkins - Create docker-compose files for server and agent
+    - name: Docker/Jenkins - Create docker-compose file
       ansible.builtin.template:
         src: ./templates/docker-compose.yml.j2
         dest: "{{ data_mountpoint }}/docker-compose-{{ host }}.yml"
