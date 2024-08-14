@@ -1,5 +1,6 @@
 ---
-- ansible.builtin.import_playbook: docker.yml
+- name: Include Docker Install playbook
+  ansible.builtin.import_playbook: docker.yml
 
 - name: Configure Debian VM with dockerized Jenkins, 1 server and 1 agent (Ansible and Opentofu)
   hosts: "{{ host }}"
@@ -56,14 +57,14 @@
     - name: Docker/Jenkins - Create docker-compose file
       ansible.builtin.template:
         src: ./templates/docker-compose.yml.j2
-        dest: "{{ data_mountpoint }}/docker-compose-{{ host }}.yml"
+        dest: "{{ data_mountpoint }}/docker-compose-{{ inventory_hostname }}.yml"
         lstrip_blocks: yes
 
     - name: Docker/Jenkins - Build images and Deploy containers
       community.docker.docker_compose_v2:
         project_src: "{{ data_mountpoint }}"
         files:
-          - "{{ data_mountpoint }}/docker-compose-{{ host }}.yml"
+          - "{{ data_mountpoint }}/docker-compose-{{ inventory_hostname }}.yml"
         build: always
         remove_orphans: true
       register: jenkins_service_build_deploy

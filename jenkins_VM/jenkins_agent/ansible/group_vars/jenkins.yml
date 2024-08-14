@@ -1,11 +1,17 @@
 ---
 data_source: "//192.168.0.241/DocCommun/Informatique/git/lvsb/jenkins_VM"
 
+##
+# CICD server : Jenkins
+##
 cicd_server:
   # https://hub.docker.com/r/jenkins/jenkins/tags
   version: 2.460-alpine-jdk21
   service_name: jenkins_server
 
+##
+# CICD agent : Jenkins agent
+##
 cicd_agent:
   # https://hub.docker.com/r/jenkins/ssh-agent/tags
   version: 5.38.0-alpine3.20-jdk21

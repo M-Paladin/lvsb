@@ -1,3 +1,5 @@
+.gitignore
+
 .vscode/
 sshkeys/
 docker-compose-*
@@ -5,6 +7,7 @@ docker-compose-*
 .terraform/
 *terraform*
 credentials/
+vault/
 
 # to remove later
 127.0.0.1.yml

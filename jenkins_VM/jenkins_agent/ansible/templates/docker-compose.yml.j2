@@ -6,6 +6,12 @@ services:
     {% if service.dockerfile is defined %}
     build:
       context: .
+      {% if service.args is defined %}
+      args:
+        {% for arg in service.args %}
+        - {{ arg }}
+        {% endfor %}
+      {% endif %}
       dockerfile_inline: |
 {{ service.dockerfile | indent(8, true) }}
     {% endif %}
@@ -36,6 +42,15 @@ services:
       {% for secret in service.secrets %}
       - {{ secret.name }}
       {% endfor %}
+    {% endif %}
+    {% if service.entrypoint is defined %}
+    entrypoint: {{ service.entrypoint }}
+    {% endif %}
+    {% if service.command is defined %}
+    command: {{ service.command }}
+    {% endif %}
+    {% if service.user is defined %}
+    user: {{ service.user }}
     {% endif %}
 {% endfor %}
 
