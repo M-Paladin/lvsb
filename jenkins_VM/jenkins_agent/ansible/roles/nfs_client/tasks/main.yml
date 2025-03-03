@@ -1,0 +1,17 @@
+---
+- name: Debian - Install required packages
+  ansible.builtin.package:
+    name: nfs-common
+  become: true
+
+- name: NFS - Mount needed data
+  ansible.posix.mount:
+    src: "{{ data_remote_source }}/{{ nfs_client_item }}"
+    path: "{{ data_local_path }}/{{ nfs_client_item }}"
+    state: mounted
+    fstype: nfs
+  loop: "{{ mounts }}"
+  loop_control:
+    loop_var: nfs_client_item
+  become: true
+...

@@ -1,0 +1,19 @@
+---
+- name: Docker - Create compose file
+  ansible.builtin.template:
+    src: ./templates/compose.yml.j2
+    dest: ./compose.yml
+    lstrip_blocks: yes
+
+- name: Docker - Build images
+  community.docker.docker_compose_v2:
+    project_src: .
+    build: always
+    remove_orphans: true
+
+# - name: Docker - Deploy containers
+#   community.docker.docker_compose_v2:
+#     project_src: .
+#     services: "{{ docker_compose_services_up }}"
+#     build: never
+...

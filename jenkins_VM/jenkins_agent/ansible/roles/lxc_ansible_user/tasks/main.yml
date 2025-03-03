@@ -1,0 +1,83 @@
+---
+- name: Ansible - Test access with ansible user
+  ansible.builtin.ping:
+  register: server_access
+  ignore_unreachable: true
+
+# - name: Ansible - Stop when ansible user already exists
+#   set_fact:
+#     lxc_ansible_user_skip = True
+#   #ansible.builtin.meta: end_role
+#   when:
+#     - server_access.ping is defined
+#     - server_access.ping == "pong"
+
+- name: Ansible - save ansible user
+  set_fact:
+    lxc_ansible_user_name: "{{ ansible_user }}"
+
+- debug:
+    msg: "{{ lxc_ansible_user_name }}"
+
+- name: Create ansible user and access
+  block:
+
+    - debug:
+        msg: "{{ lxc_ansible_user_name }}"
+
+    - name: Debian - Install required packages
+      ansible.builtin.package:
+        name: sudo
+
+    - name: Debian - Create ansible user
+      ansible.builtin.user:
+        name: "{{ lxc_ansible_user_name }}"
+        update_password: on_create
+        shell: /bin/bash
+        create_home: true
+        uid: 1000
+
+    - name: Debian - Create sudo access for ansible user
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/91-ansible-users
+        content: |
+          # User rules for ansible user
+          {{ lxc_ansible_user_name }} ALL=(ALL) NOPASSWD:ALL
+
+    - name: Debian - Create SSH folder for ansible user
+      ansible.builtin.file:
+        path: /home/{{ lxc_ansible_user_name }}/.ssh
+        state: directory
+        owner: "{{ lxc_ansible_user_name }}"
+        group: "{{ lxc_ansible_user_name }}"
+        mode: 0700
+
+    - name: Debian - Copy ssh public keys for ansible user access
+      ansible.builtin.copy:
+        src: /root/.ssh/authorized_keys
+        remote_src: true
+        dest: "/home/{{ lxc_ansible_user_name }}/.ssh/authorized_keys"
+        owner: "{{ lxc_ansible_user_name }}"
+        group: "{{ lxc_ansible_user_name }}"
+        mode: 0600
+
+    - name: Debian - Disable ssh public keys for root user
+      ansible.builtin.file:
+        path: /root/.ssh/authorized_keys
+        state: absent
+
+    - name: Ansible - Reset ssh connection to connect with ansible user
+      ansible.builtin.meta: reset_connection
+      notify:
+        - SSH service | Restart
+  when: server_access.ping is not defined
+  vars:
+    ansible_user: root
+
+# - name: Ansible - Test access with ansible user
+#   ansible.builtin.ping:
+#   register: server_access
+#   ignore_unreachable: true
+#   vars:
+#     ansible_user: "{{ ansible_user }}"
+...

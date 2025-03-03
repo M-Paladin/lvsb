@@ -1,0 +1,22 @@
+---
+- name: Debian - Disable IPv6 permanently after reboot in Grub config
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    backrefs: true
+    regexp: '^(GRUB_CMDLINE_LINUX=")(?!.*\b{{ no_ipv6_grub_option }}\b)(.*)'
+    line: '\1{{ no_ipv6_grub_option }} \2'
+  vars:
+    no_ipv6_grub_option: "ipv6.disable=1"
+  notify: Grub | Update
+  become: true
+
+- name: Debian - Read kernel parameters
+  ansible.builtin.slurp: 
+    src: /proc/cmdline
+  register: no_ipv6_proc_cmdline
+  changed_when: ("ipv6.disable=1" not in no_ipv6_proc_cmdline.content|b64decode)
+  notify: Grub | Update
+
+- name: Debian - Flush "Grub | Update" handler
+  ansible.builtin.meta: flush_handlers
+...

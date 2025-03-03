@@ -1,0 +1,5 @@
+---
+- name: Grub | Update
+  ansible.builtin.shell: update-grub
+  become: true
+...

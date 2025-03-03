@@ -1,0 +1,15 @@
+---
+- name: "{{ repository_application }} - Download repository gpg key"
+  ansible.builtin.get_url:
+    url: "{{ repository_gpg_key_remote_url }}"
+    dest: "{{ repository_gpg_key_local_path }}"
+    mode: 'a+r'
+
+- name: "{{ repository_application }} - Add apt repository"
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch=amd64 signed-by={{ repository_gpg_key_local_path }}]
+      {{ repository_remote_url }}
+    filename: "{{ repository_application | lower }}"
+  become: true
+...

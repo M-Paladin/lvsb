@@ -1,0 +1,23 @@
+---
+- name: Debian - Check if grub config file exists
+  ansible.builtin.stat: 
+    path: /etc/default/grub
+  register: no_ipv6_grub_config
+
+- name: "Debian - Work with {{ 'grub for VM' if no_ipv6_grub_config.stat.exists else 'sysctl for LXC' }}"
+  include_tasks: "{{ 'grub.yml' if no_ipv6_grub_config.stat.exists else 'sysctl.yml' }}"
+
+- name: Debian - Reboot server and wait for it to force IPv4 only
+  ansible.builtin.reboot:
+    reboot_timeout: 3600
+  when: (no_ipv6_grub_config.stat.exists == True and "ipv6.disable=1" not in no_ipv6_proc_cmdline.content|b64decode) or
+        (no_ipv6_grub_config.stat.exists == False and no_ipv6_systcl_config.changed)
+  become: true
+
+- name: Debian - Remove netconfig ipv6
+  ansible.builtin.replace:
+    dest: /etc/netconfig
+    regexp: '^(udp6|tcp6)'
+    replace: '#\1'
+  become: true
+...

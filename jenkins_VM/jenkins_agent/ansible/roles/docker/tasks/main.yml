@@ -1,0 +1,39 @@
+---
+- name: Debian - Gather LSB
+  ansible.builtin.setup:
+    gather_subset: 'lsb'
+
+- block:
+  - name: Docker - Add and configure apt repository
+    ansible.builtin.import_role:
+      name: repository
+    vars:
+      repository_application: Docker
+      repository_gpg_key_remote_url: https://download.docker.com/linux/debian/gpg
+      repository_gpg_key_local_path: /etc/apt/keyrings/docker.asc
+      repository_remote_url: "https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable"
+
+  - name: Debian - Install required packages
+    ansible.builtin.package:
+      name:
+        - docker-ce
+        - python3-docker
+
+  - name: Docker - Add ansible user to group
+    ansible.builtin.user:
+      name: "{{ ansible_user }}"
+      groups: docker
+      append: true
+
+  - name: Docker - Prune resources
+    community.docker.docker_prune:
+      containers: true
+      images: true
+      images_filters:
+        dangling: false
+      volumes: true
+      builder_cache: true
+
+  # Block become
+  become: true
+...

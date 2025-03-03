@@ -1,0 +1,35 @@
+---
+- name: Change locale to {{ set_locale_lang }}.{{ set_locale_encoding }}
+  block:
+  - name: Debian - Set locale in debconf
+    ansible.builtin.debconf:
+      name: locales
+      question: "{{ set_locale_item.0}}"
+      value: "{{ set_locale_item.1 }}"
+      vtype: select
+    loop_control:
+      loop_var: set_locale_item
+    loop:
+      - ["locales/default_environment_locale", "{{ set_locale_lang }}.{{ set_locale_encoding }}"]
+      - ["locales/locales_to_be_generated", "{{ set_locale_lang }}.{{ set_locale_encoding }} {{ set_locale_encoding }}"]
+
+  - name: Debian - Set default locale
+    ansible.builtin.copy:
+      dest: "/etc/default/locale"
+      content: |
+        LANG={{ set_locale_lang }}.{{ set_locale_encoding }}
+        LANGUAGE={{ set_locale_lang }}.{{ set_locale_encoding }}
+        LC_ALL={{ set_locale_lang }}.{{ set_locale_encoding }}
+
+  - name: Debian - Ensure a locale exists
+    community.general.locale_gen:
+      name: "{{ set_locale_lang }}.{{ set_locale_encoding }}"
+      state: present
+      
+  # block notify
+  notify: Locales | dpkg reconfigure
+  become: true
+
+- name: Debian - Flush "Locales | dpkg reconfigure" handler
+  ansible.builtin.meta: flush_handlers
+...
