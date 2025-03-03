@@ -4,15 +4,42 @@ all:
   children:
     jenkins:
       hosts:
-        jenkins-1:
+        jenkins_1:
           ansible_host: 192.168.0.61
-        jenkins-2:
+        jenkins_2:
           ansible_host: 192.168.0.62
-    samba:
+    fileserver:
       hosts:
-        samba-1:
+        fileserver_1:
           ansible_host: 192.168.0.63
-        samba-2:
+        fileserver_2:
           ansible_host: 192.168.0.64
-
+    nfs_server:
+      vars:
+        ansible_ssh_timeout: 30
+      hosts:
+        nfs_server_1:
+          ansible_host: 192.168.0.71
+        nfs_server_2:
+          ansible_host: 192.168.0.72
+    dns_ext:
+      hosts:
+        dns_ext_1:
+          ansible_host: 192.168.0.5
+    events:
+      hosts:
+        events_1:
+          ansible_host: 192.168.0.70
+    dolibarr:
+      hosts:
+        dolibarr_1:
+          ansible_host: 192.168.0.80
+    nfs_common:
+      hosts:
+        nfs_server_1:
+        nfs_server_2:
+        jenkins_1:
+        jenkins_2:
+        events_1:
+        dolibarr_1:
 ...

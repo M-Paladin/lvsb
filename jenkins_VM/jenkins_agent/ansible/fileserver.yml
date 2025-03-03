@@ -1,13 +1,25 @@
 ---
+- name: Include locales Configuration playbook
+  ansible.builtin.import_playbook: locales.yml
+
 - name: Include Docker Install playbook
   ansible.builtin.import_playbook: docker.yml
 
-- name: Configure VM with Samba
+- name: Configure VM as a fileserver
   hosts: "{{ host }}"
   remote_user: jenkins
   become: true
 
+  roles:
+    - no_ipv6
+
   tasks:
+    - name: Debian - Install required packages for NFS
+      ansible.builtin.package:
+        name: "{{ item }}"
+      loop:
+        - nfs-kernel-server
+
     - name: Linux users and groups - Create groups
       ansible.builtin.group:
         name: "{{ item.0.name }}{{ item.1.name }}"
@@ -49,7 +61,7 @@
         label: "{{ data_source }}/{{ item.name }}"
 
     - name: Samba - Install packages
-      ansible.builtin.apt:
+      ansible.builtin.package:
         name: "{{ item }}"
       loop:
         - samba
@@ -73,7 +85,7 @@
       changed_when: false
 
     - name: Samba - Delete non declared users
-      ansible.builtin.command: |
+      ansible.builtin.shell: |
         pdbedit -x {{ item }}
       loop: "{{ samba_users | difference(users_account | map(attribute='name')) }}"
 
@@ -115,12 +127,6 @@
       notify:
         - Keepalived - Restart service
 
-    - name: Docker - Create docker-compose file
-      ansible.builtin.template:
-        src: ./templates/docker-compose.yml.j2
-        dest: "/home/jenkins/docker-compose-{{ inventory_hostname }}.yml"
-        lstrip_blocks: yes
-
     - name: Docker - Create config folders
       ansible.builtin.file:
         path: "{{ item }}"
@@ -144,6 +150,13 @@
         modification_time: preserve
         access_time: preserve
 
+    - name: Docker - Create docker-compose file
+      ansible.builtin.template:
+        src: ./templates/docker-compose.yml.j2
+        dest: "/home/jenkins/docker-compose-{{ inventory_hostname }}.yml"
+        lstrip_blocks: yes
+      tags: docker-compose
+
     - name: Docker - Build images and Deploy containers
       community.docker.docker_compose_v2:
         project_src: "/home/jenkins"
@@ -151,6 +164,24 @@
           - "/home/jenkins/docker-compose-{{ inventory_hostname }}.yml"
         build: always
         remove_orphans: true
+
+    - name: NFS - Create storage folders
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: nas_user
+        group: users
+        mode: 0775
+      loop:
+        - "{{ data_source }}/Informatique/nfs/pve"
+  
+    - name: NFS - Create NFS exports
+      ansible.builtin.copy:
+        dest: /etc/exports
+        content: |
+          {{ data_source }}/Informatique/nfs/pve          192.168.0.0/24(fsid=1,rw,subtree_check,insecure,anonuid=1001,anongid=100)
+      notify:
+        - NFS - Restart service
 
   handlers:
     - name: Samba - Restart service
@@ -162,6 +193,12 @@
     - name: Keepalived - Restart service
       ansible.builtin.service:
         name: keepalived
+        state: restarted
+        enabled: true
+
+    - name: NFS - Restart service
+      ansible.builtin.service:
+        name: nfs-kernel-server
         state: restarted
         enabled: true
 ...

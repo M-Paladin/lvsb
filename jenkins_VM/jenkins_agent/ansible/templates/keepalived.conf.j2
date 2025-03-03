@@ -1,7 +1,7 @@
-# create new
+# BEGIN ANSIBLE MANAGED
 global_defs {
     # set hostname
-    router_id {{ host }}
+    router_id {{ ansible_host }}
 }
 
 vrrp_instance VRRP1 {
@@ -15,7 +15,7 @@ vrrp_instance VRRP1 {
     interface eth0
     # set unique ID on each VRRP interface
     # on the a VRRP interface, set the same ID on all nodes
-    virtual_router_id 101
+    virtual_router_id 1
     # set priority : [Master] > [BACKUP]
     priority {{ vrrp_priority }}
     # VRRP advertisement interval (sec)
@@ -29,6 +29,7 @@ vrrp_instance VRRP1 {
     # vmac_xmit_base         
     # virtual IP address
     virtual_ipaddress {
-        {{ vrrp_vip }}
+        {{ nfs_server_vip }}
     }
 }
+# END ANSIBLE MANAGED
