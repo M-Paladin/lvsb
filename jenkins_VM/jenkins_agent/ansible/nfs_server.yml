@@ -1,0 +1,210 @@
+---
+- name: Configure VM as a fileserver
+  hosts: "{{ host }}"
+  remote_user: "{{ ansible_user }}"
+  become: true
+  gather_facts: no
+
+  roles:
+    - lxc_ansible_user
+    - no_ipv6
+    - set_locale
+    - repository
+
+  tasks:
+    - name: Debian - Install required packages for HA NFS server
+      ansible.builtin.package:
+        name:
+          - nfs-kernel-server
+          - keepalived
+          - syncthing
+
+    - name: Debian - Create NFS user
+      ansible.builtin.user:
+        name: "{{ nfs_share_owner.name}}"
+        group: "{{ nfs_share_owner.group}}"
+        update_password: on_create
+        shell: /sbin/nologin
+        create_home: false
+        uid: "{{ nfs_share_owner.uid }}"
+      tags:
+        - nfs
+
+    # - name: Debian - Mount hard disk
+    #   ansible.posix.mount:
+    #     path: "{{ data_remote_source }}"
+    #     src: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1-part1
+    #     fstype: ext4
+    #     state: mounted
+
+    - name: Debian - Create NFS shared folders
+      ansible.builtin.file:
+        path: "{{ data_local_path }}/{{ item.subpath | default( item.name ) }}"
+        state: directory
+        owner: "{{ nfs_share_owner.name}}"
+        group: "{{ nfs_share_owner.group}}"
+        mode: "{{ 'g+w' if item.subpath is defined else 'u=rwx,g=rwx,o=rx,g+s' }}"
+      loop: "{{ shares + sub_shares }}"
+      loop_control:
+        label: "{{ data_local_path }}/{{ item.subpath | default( item.name ) }}"
+      tags:
+        - nfs
+
+    - name: Debian - Add /etc/hosts entries for NFS groups simulation
+      ansible.builtin.blockinfile:
+        path: "/etc/hosts"
+        insertbefore: EOF
+        prepend_newline: true
+        append_newline: true
+        block: |
+          ######################
+          # For NFS usage only #
+          ######################
+          {%- for host in etc_hosts_entries +%}
+          {{ local_network | ansible.utils.ipaddr(host.ip) | ansible.utils.ipaddr('address') }}{% for ro_client in host.ro %} {{ host.ip }}.{{ ro_client }}.ro.nfs{% endfor %}{% for rw_client in host.rw %} {{ host.ip }}.{{ rw_client }}.rw.nfs{% endfor %}
+          {% endfor %}
+      notify:
+        - NFS kernel server service | Restart
+      tags:
+        - nfs
+#{{ local_network_base }}{{ host.ip }}{% for ro_client in host.ro %} {{ host.ip }}.{{ ro_client }}.ro.nfs{% endfor %}{% for rw_client in host.rw %} {{ host.ip }}.{{ rw_client }}.rw.nfs{% endfor %}
+
+    - name: Debian - Create Bind Mounts for NFS exports
+      ansible.posix.mount:
+        src: "{{ data_local_path }}/{{ item.subpath | default( item.name ) }}"
+        path: "/export/{{ item.name }}"
+        fstype: none
+        opts: bind
+        state: mounted
+      loop: "{{ shares + sub_shares }}"
+      tags:
+        - nfs
+
+    - name: NFS - Create exports file
+      ansible.builtin.template:
+        src: ./templates/nfs-exports.j2
+        dest: /etc/exports
+        owner: root
+        group: root
+        mode: 0644
+        lstrip_blocks: yes
+      notify:
+        - NFS kernel server service | Restart
+      tags:
+        - nfs
+
+    - name: Keepalived - Create configuration file
+      ansible.builtin.template:
+        src: ./templates/keepalived.conf.j2
+        dest: /etc/keepalived/keepalived.conf
+        owner: root
+        group: root
+        mode: 0644
+        lstrip_blocks: yes
+      notify:
+        - Keepalived service | Restart
+      tags:
+        - keepalived
+
+    - name: Debian - Create config directories for hosted apps
+      ansible.builtin.file:
+        path: "{{ syncthing_config_path }}"
+        state: directory
+        owner: "{{ nfs_share_owner.name }}"
+        group: "{{ nfs_share_owner.group }}"
+        #mode: u=rwx,g=rwx,o=rx,g+s
+        recurse: true
+      tags:
+        - syncthing
+
+    - name: Syncthing - Check if certs exists
+      ansible.builtin.stat: 
+        path: "{{ syncthing_config_path }}/cert.pem"
+      register: syncthing_cert_file
+      tags:
+        - syncthing
+
+    - name: Syncthing - Generate certs and retrive device ID
+      ansible.builtin.shell: |
+        sudo -u {{ nfs_share_owner.name }} env STGUIAPIKEY="{{ syncthing_api_key }}" syncthing generate --config={{ syncthing_config_path }} --no-default-folder | awk '/Device/{print $NF}'
+      args:
+        chdir: "{{ syncthing_config_path }}"
+      register: syncthing_device_id
+      changed_when: not syncthing_cert_file.stat.exists
+      tags:
+        - syncthing
+
+    # Find a way to deal with that if peer not deployed in the same time
+    - name: Syncthing - Check if peer certs exists
+      ansible.builtin.stat: 
+        path: "{{ syncthing_peer_config_path }}/cert.pem"
+      register: syncthing_peer_cert_file
+      delegate_to: "{{ syncthing_peer_name }}"
+      tags:
+        - syncthing
+
+    - name: Syncthing - Retrieve peer certs and device ID
+      ansible.builtin.shell: |
+        sudo -u {{ nfs_share_owner.name }} env STGUIAPIKEY="{{ hostvars[syncthing_peer_name]['syncthing_api_key'] }}" syncthing generate --config={{ syncthing_peer_config_path }} --no-default-folder | awk '/Device/{print $NF}'
+      args:
+        chdir: "{{ syncthing_peer_config_path }}"
+      register: syncthing_peer_device_id
+      delegate_to: "{{ syncthing_peer_name }}"
+      changed_when: not syncthing_peer_cert_file.stat.exists
+      tags:
+        - syncthing
+
+    - name: Syncthing - Create configuration file
+      ansible.builtin.template:
+        src: ./syncthing-config.xml.j2
+        dest: "{{ syncthing_config_path }}/config.xml"
+        owner: "{{ nfs_share_owner.name}}"
+        group: "{{ nfs_share_owner.group}}"
+        mode: 0664
+        lstrip_blocks: yes
+      notify:
+        - Syncthing service | Restart
+      tags:
+        - syncthing
+
+    - name: Syncthing - modify systemd service for browser access
+      ansible.builtin.lineinfile:
+        path: /usr/lib/systemd/system/syncthing@.service
+        backrefs: true
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - description: "Change syncthing permission capability"
+          regexp: "^#.*(AmbientCapabilities.*)"
+          line: "\\1"
+        - description: "Customize Execstart"
+          regexp: "^(ExecStart=).*(/usr/bin/syncthing.*--logflags=0)"
+          line: "\\1env STDEBUG_CompactEverything=1 \\2 --no-default-folder --home={{ syncthing_config_path }}"
+      loop_control:
+        label: "{{ item.description }}"
+      notify:
+        - Syncthing service | Restart
+      tags:
+        - syncthing
+
+  handlers:
+    - name: Keepalived service | Restart
+      ansible.builtin.service:
+        name: keepalived
+        state: restarted
+        enabled: true
+
+    - name: NFS kernel server service | Restart
+      ansible.builtin.service:
+        name: nfs-kernel-server
+        state: restarted
+        enabled: true
+
+    - name: Syncthing service | Restart
+      ansible.builtin.service:
+        name: syncthing@{{ nfs_share_owner.name }}.service
+        state: restarted
+        enabled: true
+        daemon_reload: true
+      tags: ok
+...

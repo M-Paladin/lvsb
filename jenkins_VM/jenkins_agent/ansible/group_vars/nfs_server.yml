@@ -1,0 +1,108 @@
+---
+data_local_path: "/srv/datadisk"
+
+syncthing_config_path: "{{ data_local_path }}/Informatique/config/{{ inventory_hostname }}/syncthing"
+syncthing_peer_config_path: "{{ data_local_path }}/Informatique/config/{{ syncthing_peer_name }}/syncthing"
+
+repository_application: Syncthing
+repository_gpg_key_remote_url: https://syncthing.net/release-key.gpg
+repository_gpg_key_local_path: /etc/apt/keyrings/syncthing-archive-keyring.gpg
+repository_remote_url: https://apt.syncthing.net/ syncthing stable
+
+nfs_share_owner:
+  name: "nfs_user"
+  uid: "1001"
+  group: "users"
+  gid: "100"
+
+local_network: "192.168.0.0/24"
+
+#local_network_base: "192.168.0."
+#vrrp_vip: "192.168.0.73/24"
+
+shares:
+  - name: DocLudo
+  - name: DocSteph
+  - name: DocCommun
+  - name: Applications
+  - name: Musiques
+  - name: Photos
+  - name: Telechargements
+  - name: Videos
+  - name: Informatique
+
+sub_shares:
+  - name: pve
+    subpath: Informatique/pve
+  - name: config
+    subpath: Informatique/config
+  - name: git_lvsb
+    subpath: Informatique/git/lvsb
+
+etc_hosts_entries:
+  # Proxmox
+  - ip: "11"
+    rw: ["pve"]
+    ro: []
+  - ip: "12"
+    rw: ["pve"]
+    ro: []
+  - ip: "13"
+    rw: ["pve"]
+    ro: []
+  # Backup
+  - ip: "210"
+    rw: []
+    ro: ["DocLudo", "DocSteph", "DocCommun", "Applications", "Musiques", "Photos", "Telechargements", "Videos", "Informatique"]
+  - ip: "211"
+    rw: []
+    ro: ["DocLudo", "DocSteph", "DocCommun", "Photos", "Informatique"]
+  # CICD
+  - ip: "61"
+    rw: ["config", "git_lvsb"]
+    ro: []
+  - ip: "62"
+    rw: ["config", "git_lvsb"]
+    ro: []
+  # Apps
+  - ip: "53"
+    rw: []
+    ro: ["Musiques", "Photos", "Videos"]
+  - ip: "70"
+    rw: []
+    ro: ["config"]
+  - ip: "212"
+    rw: []
+    ro: ["DocLudo", "DocSteph", "DocCommun", "config"]
+  - ip: "242"
+    rw: ["Photos"]
+    ro: ["config"]
+  - ip: "244"
+    rw: ["config"]
+    ro: []
+  - ip: "245"
+    rw: ["Musiques"]
+    ro: ["config"]
+  - ip: "246"
+    rw: ["Telechargements"]
+    ro: ["config"]
+  - ip: "247"
+    rw: ["config"]
+    ro: []
+  - ip: "248"
+    rw: ["config"]
+    ro: []
+  - ip: "249"
+    rw: ["config"]
+    ro: []
+  # Clients
+  - ip: "10"
+    rw: ["DocLudo", "DocCommun", "Applications", "Musiques", "Photos", "Telechargements", "Videos", "Informatique"]
+    ro: ["DocSteph"]
+  - ip: "20"
+    rw: ["DocSteph", "DocCommun", "Applications", "Musiques", "Photos", "Telechargements", "Videos", "Informatique"]
+    ro: ["DocLudo"]
+  - ip: "41"
+    rw: ["DocSteph", "DocCommun", "Applications", "Musiques", "Photos", "Telechargements", "Videos", "Informatique"]
+    ro: ["DocLudo"]
+...

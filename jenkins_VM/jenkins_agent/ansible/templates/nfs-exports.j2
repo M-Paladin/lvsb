@@ -1,0 +1,6 @@
+# BEGIN ANSIBLE MANAGED
+/export {{ local_network }}(fsid=0,ro,no_subtree_check,secure,root_squash,hide)
+{% for share in (shares + sub_shares) %}
+/export/{{ share.name.ljust(20) }}  *.{{ share.name }}.ro.nfs({% if share.fsid is defined %}fsid={{ share.fsid }},{% endif %}ro,no_subtree_check,insecure) *.{{ share.name }}.rw.nfs({% if share.fsid is defined %}fsid={{ share.fsid }},{% endif %}rw,no_subtree_check,insecure,all_squash,anonuid={{ nfs_share_owner.uid }},anongid={{ nfs_share_owner.gid }})
+{% endfor %}
+# END ANSIBLE MANAGED

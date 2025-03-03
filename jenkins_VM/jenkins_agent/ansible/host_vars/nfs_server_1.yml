@@ -1,0 +1,7 @@
+---
+#data_disk_serial: "3WJNSVPJ"
+vrrp_state: "BACKUP"
+vrrp_priority: 200
+syncthing_api_key: "ksX2xjtUdxGY6Pc36iDCv76baQiMQzvD"
+syncthing_peer_name: "nfs_server_2"
+...

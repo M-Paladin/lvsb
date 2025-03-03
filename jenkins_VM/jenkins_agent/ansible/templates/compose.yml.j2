@@ -1,0 +1,58 @@
+# BEGIN ANSIBLE MANAGED
+{# Variable init #}
+{% set secrets_property = namespace(found=false) -%}
+
+{# Macro definition #}
+{% macro datalist(datasrc, offset) %}
+  {% if datasrc[caller()] is defined %}{{ caller() | indent(offset, True) }}:
+    {% for item in datasrc[caller()] if datasrc[caller()] is sequence and datasrc[caller()] is not mapping %}
+      {% if caller() == "secrets" %}{{ ("- " + item.name) | indent(offset, True) }}
+      {% else %}{{ ("- " + item) | indent(offset, True) }}
+      {% endif %}
+    {% endfor %}
+    {% for key in datasrc[caller()] if datasrc[caller()] is mapping %}
+      {{ key | indent(offset, True) }}: "{{ datasrc[caller()][key] }}"
+    {% endfor %}
+  {% endif %}
+{% endmacro -%}
+
+{# List of services #}
+services:
+{% for service in services %}
+  {{ service.name }}:
+    {# Test if docker image needs to be built #}
+    {% if service.replicas is defined %}
+    deploy:
+      replicas: {{ service.replicas }}
+    {% endif %}
+    {% if service.dockerfile is defined %}
+    build:
+      context: .
+      {% call datalist(service, 6) %}args{% endcall %}
+      dockerfile_inline: |
+{{ service.dockerfile | indent(8, true) }}
+    {% endif %}
+    image: {{ service.image_name }}
+    {% if service.container_name is defined %}
+    restart: unless-stopped
+    container_name: {{ service.container_name }}
+    {% endif %}
+    {% call datalist(service, 4) %}volumes{% endcall %}
+    {% call datalist(service, 4) %}ports{% endcall %}
+    {% call datalist(service, 4) %}environment{% endcall %}
+    {% if service.secrets is defined %}{% set secrets_property.found = true %}{% endif %}
+    {% call datalist(service, 4) %}secrets{% endcall %}
+{% endfor %}
+
+{% if secrets_property.found %}
+secrets:
+  {% for service in services %}
+    {% if service.secrets is defined %}
+      {% for secret in service.secrets %}
+  {{ secret.name }}:
+    file: {{ secret.file }}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+# END ANSIBLE MANAGED
