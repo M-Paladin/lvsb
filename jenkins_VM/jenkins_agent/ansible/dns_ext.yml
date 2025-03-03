@@ -1,0 +1,89 @@
+---
+- name: Configure VM with Bind
+  hosts: "{{ host }}"
+  remote_user: jenkins
+  become: true
+  gather_facts: no
+
+  vars:
+    ansible_user: "ansible"
+    ansible_ssh_private_key_file: "/run/secrets/ansible_private_ssh_key"
+
+  roles:
+    - no_ipv6
+    - set_locale
+
+  tasks:
+    - name: Debian - Purge resolv.conf
+      ansible.builtin.lineinfile:
+        path: /etc/resolv.conf
+        regexp: '^nameserver.*(:|!\b127.0.0.1\b).*'
+        state: absent
+
+    - name: Debian - Gather the package facts 
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Debian - Use temporary server resolv.conf when packages not installed
+      ansible.builtin.replace:
+        path: /etc/resolv.conf
+        regexp: nameserver 127.0.0.1
+        replace: nameserver 1.1.1.1
+      when: |
+        'bind9' not in ansible_facts.packages or
+        'bind9-dnsutils' not in ansible_facts.packages or
+        'cron' not in ansible_facts.packages
+
+    - name: Debian - Install required packages
+      ansible.builtin.package:
+        name:
+          - bind9
+          - bind9-dnsutils
+          - cron
+
+    - name: Bind - Modify listening options
+      ansible.builtin.lineinfile:
+        path: /etc/bind/named.conf.options
+        regexp: |
+          listen-on-v6 { .*; };
+        line: |
+          {% filter indent(width=8, first=true) %}
+          listen-on-v6 { none; };
+          {% endfilter %}
+
+    - name: Bind - Add missing options
+      ansible.builtin.blockinfile:
+        path: /etc/bind/named.conf.options
+        append_newline: true
+        prepend_newline: true
+        block: |
+          {% filter indent(width=8, first=true) %}
+          {% for item in dns_options -%}
+          {{ item }} {
+            127.0.0.0/8;
+            192.168.0.0/16;
+          };
+
+          {% endfor %}
+          {% endfilter %}
+        insertbefore: "};"
+      vars:
+        dns_options:
+          - listen-on
+          - allow-recursion
+          - allow-query
+          - allow-query-cache
+
+    - name: Cron - Create job to retrieve db.root and reload bind
+      ansible.builtin.cron:
+        name: Retrieve named.cache --> db.root and reload Bind service
+        minute: "0"
+        hour: "3"
+        job: wget ftp://ftp.rs.internic.net/domain/named.cache -O /etc/bind/db.root && rndc reload
+
+    - name: Debian - Modify resolv.conf for final usage
+      ansible.builtin.lineinfile:
+        path: /etc/resolv.conf
+        regexp: nameserver 1.1.1.1
+        line: nameserver 127.0.0.1
+...

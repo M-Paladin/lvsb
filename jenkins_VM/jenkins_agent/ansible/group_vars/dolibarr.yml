@@ -1,0 +1,63 @@
+---
+ansible_user: ansible
+data_remote_source: "{{ nfs_server_vip | ansible.utils.ipaddr('address') }}:config"
+
+crm_path: "{{ data_local_path }}/dolibarr"
+crm_db_path: /opt/dolibarr/mariadb
+crm_doc_path: "{{ crm_path }}/documents"
+crm_custom_path: "{{ crm_path }}/custom"
+
+##
+# CRM: dolibarr
+##
+crm:
+  version: 20.0.3-php8.2
+  registry_name: dolibarr
+  service_name: dolibarr
+db:
+  version: "11.6"
+  service_name: mariadb
+  volume_name: mariadb_dolibarr
+
+services:
+  # CRM App
+  - name: "{{ crm.service_name }}"
+    image_name: "{{ crm.registry_name }}/{{ crm.service_name }}:{{ crm.version }}"
+    container_name: "{{ crm.service_name }}"
+    environment:
+      WWW_USER_ID: "{{ nfs_share_owner.uid}}"
+      WWW_GROUP_ID: "{{ nfs_share_owner.gid}}"
+      DOLI_DB_HOST: mariadb
+      DOLI_DB_NAME: dolidb
+      DOLI_DB_USER: dolidbuser
+      DOLI_DB_PASSWORD: dolidbpass
+      DOLI_URL_ROOT: "http://{{ ansible_host }}"
+      DOLI_ADMIN_LOGIN: admin
+      DOLI_ADMIN_PASSWORD: admin
+      DOLI_CRON_KEY: s7ysox5md27dimef3mqy9rsqkmzsv9cq
+      DOLI_CRON_USER: admin
+      DOLI_INIT_DEMO: 0
+      DOLI_COMPANY_NAME: Hexalence
+      DOLI_COMPANY_COUNTRYCODE: FI
+      # PHP_INI_DATE_TIMEZONE: Europe/Helsinki
+      # TZ: Europe/Helsinki
+    ports:
+      - "80:80"
+    volumes:
+      - "{{ crm_doc_path }}:/var/www/documents"
+      - "{{ crm_custom_path }}:/var/www/html/custom"
+  # CRM DB
+  - name: "{{ db.service_name }}"
+    image_name: "{{ db.service_name }}:{{ db.version }}"
+    container_name: "{{ db.service_name }}"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: dolidb
+      MYSQL_USER: dolidbuser
+      MYSQL_PASSWORD: dolidbpass
+      # TZ: Europe/Helsinki
+    volumes:
+      - "{{ crm_db_path }}:/var/lib/mysql"
+
+# Tout mettre en UTC et expliquer à Steph
+...

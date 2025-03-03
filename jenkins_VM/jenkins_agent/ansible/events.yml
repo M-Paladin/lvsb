@@ -1,0 +1,85 @@
+---
+- name: Configure VM as a chat server
+  hosts: "{{ host }}"
+  remote_user: jenkins
+  become: true
+  gather_facts: no
+
+  roles:
+    - no_ipv6
+    - set_locale
+    - docker
+#
+# ATTENTION CPU par défaut ne convient pas pour Mongodb : https://forum.proxmox.com/threads/amd64-avx-into-processor-x86-64-v2-aes.138350/
+# https://www.qemu.org/docs/master/system/i386/cpu.html
+# i5-2400 : Sandy Bridge
+# i5-3570 : Ivy Bridge
+# A8-7600 : Bulldozer, Kaveri --> Opteron_G4
+#
+
+  tasks:
+    - name: Debian - Install required packages for NFS
+      ansible.builtin.package:
+        name: nfs-common
+
+    - name: NFS mount - Mount needed datas for container on host
+      ansible.posix.mount:
+        src: "{{ data_remote_source }}"
+        path: "{{ data_local_path }}"
+        state: mounted
+        fstype: nfs
+
+    - name: Docker - Create config folders
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        # owner: "1001"
+        # group: users
+        mode: '0775'
+      loop:
+        - "{{ data_local_path }}/events"
+        - "{{ data_local_path }}/events/gathio"
+        - "{{ data_local_path }}/events/gathio/config"
+        - "{{ data_local_path }}/events/gathio/images"
+        - "{{ data_local_path }}/events/mongodb_backup"
+
+    - name: Gathio - Create configuration file
+      ansible.builtin.template:
+        src: gathio-config.toml.j2
+        dest: "{{ data_local_path }}/events/gathio/config/config.toml"
+        mode: '0664'
+
+    - name: Docker - Create docker compose file
+      ansible.builtin.template:
+        src: ./templates/docker-compose.yml.j2
+        dest: "/home/{{ ansible_user }}/compose.yml"
+        lstrip_blocks: yes
+      tags: docker-compose
+
+    - name: Docker - Customize docker compose file for volume
+      ansible.builtin.blockinfile:
+        path: "/home/{{ ansible_user }}/compose.yml"
+        insertbefore: BOF
+        append_newline: true
+        block: |
+          volumes:
+            {{ db.volume_name }}:
+
+    - name: Docker - Build images and Deploy containers
+      community.docker.docker_compose_v2:
+        project_src: "/home/{{ ansible_user }}"
+        build: always
+        remove_orphans: true
+
+    - name: MongoDB - Restore backup
+      #community.docker.docker_container_exec:
+        #container: "{{ db.service_name }}"
+        #command: mongorestore --archive < /data/db_backup/db.dump
+      ansible.builtin.shell: |
+        docker exec -i {{ db.service_name }} sh -c 'mongorestore --archive' < "{{ data_local_path }}/events/mongodb_backup/db.dump"
+
+# sudo mv /srv/nfs/events/mongodb_backup/db.dump "/srv/nfs/events/mongodb_backup/db.dump.$(date +%Y%m%d-%H%M)"
+# docker exec mongo sh -c 'mongodump --archive' | sudo tee db.dump > /dev/null
+
+
+...

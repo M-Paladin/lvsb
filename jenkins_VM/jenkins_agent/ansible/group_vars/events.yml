@@ -1,0 +1,45 @@
+---
+data_remote_source: "{{ nfs_server_vip | ansible.utils.ipaddr('address') }}:config"
+
+##
+# Events management platform: Gathio
+##
+events:
+  version: "1.5.0"
+  registry_name: ghcr.io/lowercasename
+  service_name: gathio
+db:
+  version: "8.0.1"
+  service_name: mongo
+  volume_name: mongodb_data_db
+
+services:
+  # Events App
+  - name: "{{ events.service_name }}"
+    image_name: "{{ events.registry_name }}/{{ events.service_name }}:{{ events.version }}"
+    container_name: "{{ events.service_name }}"
+    ports:
+      - "3000:3000"
+    volumes:
+      - "{{ data_local_path }}/events/gathio/config:/app/config"
+      - "{{ data_local_path }}/events/gathio/images:/app/public/events"
+  # Events DB
+  - name: "{{ db.service_name }}"
+    image_name: "{{ db.service_name }}:{{ db.version }}"
+    container_name: "{{ db.service_name }}"
+    volumes:
+      - "{{ db.volume_name }}:/data/db"
+      #- "{{ data_local_path }}/events/mongodb_backup:/data/db_backup"
+
+domain: "team12.*.fr"
+email_sender: "l*.v*@free.fr"
+site_name: "PTEspoo - Team 12"
+emails_allowed:
+  - "l*.v*@free.fr"
+  - "l*.*@*.fr"
+  - "l*@gmail.com"
+smtp_server: "smtp.free.fr"
+smtp_port: "587"
+smtp_username: "l*.v*@free.fr"
+smtp_password: "*"
+...

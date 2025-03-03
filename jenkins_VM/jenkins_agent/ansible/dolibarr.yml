@@ -1,0 +1,91 @@
+---
+- name: Configure VM with Bind
+  hosts: "{{ host }}"
+  become: true
+
+  roles:
+    - no_ipv6
+    - set_locale
+    - docker
+    - nfs_client
+
+  tasks:
+    - name: Debian - Create NFS user
+      ansible.builtin.user:
+        name: "{{ nfs_share_owner.name}}"
+        group: "{{ nfs_share_owner.group}}"
+        update_password: on_create
+        shell: /sbin/nologin
+        create_home: false
+        uid: "{{ nfs_share_owner.uid }}"
+
+    - name: Debian - Create CRM config folders
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.keep_owner_and_group is defined | ternary(omit, nfs_share_owner.name) }}"
+        group: "{{ item.keep_owner_and_group is defined | ternary(omit, nfs_share_owner.group) }}"
+        #mode: 0775
+      loop:
+        - path: "{{ crm_doc_path }}"
+        - path: "{{ crm_custom_path }}"
+        - path: "{{ crm_db_path }}"
+          keep_owner_and_group: True
+
+    - name: Debian - Delete CRM install lock
+      ansible.builtin.file:
+        path: "{{ crm_doc_path }}/install.lock"
+        state: absent
+      when: docker_compose_file.changed
+
+    - name: Debian - Create docker compose file
+      ansible.builtin.template:
+        src: ./templates/docker-compose.yml.j2
+        dest: "/home/{{ ansible_user }}/compose.yml"
+        lstrip_blocks: yes
+      register: docker_compose_file
+
+    - name: Docker - Build images and Deploy containers
+      community.docker.docker_compose_v2:
+        project_src: "/home/{{ ansible_user }}"
+        build: always
+        remove_orphans: true
+
+    - name: Debian - Check if CRM install is finished
+      ansible.builtin.file:
+        path: "{{ crm_doc_path }}/install.lock"
+        state: file
+      retries: 30
+      delay: 10
+
+    - name: Docker - Create Dolibarr cron file
+      community.docker.docker_container_copy_into:
+        container: "{{ crm.service_name }}"
+        container_path: "/etc/cron.d/{{ crm.service_name }}"
+        mode: 0644
+        content: |
+          PATH=\$PATH:/usr/local/bin
+          */5 * * * * root /bin/su www-data -s /bin/sh -c '/var/www/scripts/cron/cron_run_jobs.php {{ services.0.environment.DOLI_CRON_KEY }} {{ services.0.environment.DOLI_CRON_USER }}' > /proc/1/fd/1 2> /proc/1/fd/2
+
+    - name: Docker - Activate Dolibarr cron
+      community.docker.docker_container_exec:
+        container: "{{ crm.service_name }}"
+        command: service cron start
+
+    - name: Debian - Find Dolibarr database backups
+      ansible.builtin.find:
+        paths: "{{ crm_doc_path }}/admin/backup"
+        patterns: '*.sql'
+      register: dolibarr_database_backups
+      when:
+        - restore_database is defined
+
+    - name: Docker - Restore last Dolibarr database
+      community.docker.docker_container_exec:
+        container: "{{ crm.service_name }}"
+        command: | 
+          mysql dolidb -h {{ db.service_name }} -P 3306 -u {{ services.1.environment.MYSQL_USER }} -p{{ services.1.environment.MYSQL_PASSWORD }} -e 'source /var/www/documents/admin/backup/{{ (dolibarr_database_backups.files | sort(attribute='mtime') | last).path | basename }}'
+      when:
+        - restore_database is defined
+        - dolibarr_database_backups.matched != 0
+...
