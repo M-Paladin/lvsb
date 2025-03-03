@@ -24,6 +24,11 @@ variable "lxc_container_dns_servers" {
   type        = list(string)
   default     = ["192.168.0.3"]
 }
+variable "lxc_container_is_unpriviledged" {
+  description = "is container unpriviledged ?"
+  type        = bool
+  default     = false
+}
 # variable "lxc_container_is_template" {
 #   description = "is VM a template ?"
 #   type        = bool
@@ -46,6 +51,16 @@ variable "lxc_container_user_sshpubkey_jenkins_agent" {
 # }
 
 # Variables with default null value, filled depending if template or not
+variable "lxc_raw_disk_path" {
+  description = "lxc data disk path for NFS LXC"
+  type        = string
+  default     = null
+}
+variable "lxc_container_version_date" {
+  description = "Container Time creation, used to trigger replacement"
+  type        = string
+  default     = null
+}
 
 # Variables to be filled
 variable "lxc_container_ip" {
@@ -75,9 +90,4 @@ variable "lxc_container_memory" {
 variable "lxc_container_disk_size" {
   description = "Container Disk (size in GB)"
   type        = number
-}
-variable "lxc_container_version_date" {
-  description = "Container Time creation, used to trigger replacement"
-  type        = string
-  default     = null
 }

@@ -8,9 +8,11 @@ resource "proxmox_virtual_environment_vm" "this" {
   template   = var.virtual_machine_is_template
   migrate    = true
 
+  started = var.virtual_machine_hostname == "fileserver-2" ? false : true
+
   cpu {
     architecture = "x86_64"
-    type  = "x86-64-v2-AES"
+    type  = var.virtual_machine_hostname == "events" ? "host" : "x86-64-v2-AES"
     cores = var.virtual_machine_cpu_cores
   }
 
@@ -51,6 +53,8 @@ resource "proxmox_virtual_environment_vm" "this" {
       file_format       = "raw"
       interface         = "scsi1"
       size              = "16764"
+      backup            = false
+      iothread          = true
     }
   }
 

@@ -1,10 +1,7 @@
 resource "proxmox_virtual_environment_container" "this" {
   node_name     = var.lxc_container_node_name
-  # start_on_boot = !var.lxc_container_is_template
-  # vm_id         = var.lxc_container_is_template ? var.lxc_container_template_id : null
   tags          = var.lxc_container_tags
-  # template      = var.lxc_container_is_template
-  unprivileged  = true
+  unprivileged  = var.lxc_container_is_unpriviledged
 
   cpu {
     cores = var.lxc_container_cpu_cores
@@ -26,50 +23,40 @@ resource "proxmox_virtual_environment_container" "this" {
     size         = var.lxc_container_disk_size
   }
 
-  # dynamic operating_system {
-  operating_system {
-    # for_each = var.lxc_container_is_template ? ["container is a template"] : []
+  # to be enhanced
+  dynamic mount_point {
+    for_each = coalesce(var.lxc_raw_disk_path,"no_disk") == "no_disk" ? [] : [ "vm is a NAS" ]
 
-    # content {
+    content {
+      # bind mount, *requires* root@pam authentication
+      volume = var.lxc_raw_disk_path
+      path   = "/srv/datadisk"
+    }
+  }
+
+  # nfs server test syncthing
+  # started = var.lxc_container_hostname == "nfs-server-test" ? false : true
+  # dynamic mount_point {
+  #   for_each = var.lxc_container_hostname == "nfs-server-test" ? [ "vm is testing" ] : []
+
+  #   content {
+  #     volume = "local-lvm"
+  #     size   = "1G"
+  #     path   = "/mnt/synthing_database"
+  #   }
+  # }
+
+  operating_system {
     template_file_id = var.lxc_container_downloaded_file_id
     type = "debian"
-    # }
   }
 
   features {
     nesting = true
+    mount = ["nfs"]
   }
-  # dynamic clone {
-  #   for_each = var.lxc_container_is_template ? [] : [ "container is not a template" ]
 
-  #   content {
-  #     node_name = var.lxc_container_template_node_name
-  #     vm_id     = var.lxc_container_template_id
-  #   }
-  # }
-
-  # dynamic initialization {
-  #   for_each = var.lxc_container_is_template ? ["container is a template" ] : []
-
-  #   content {
-  #     hostname = var.lxc_container_hostname
-  #     # ip_config {
-  #     #   ipv4 {
-  #     #     address = "dhcp"
-  #     #   }
-  #     # }
-  #     user_account {
-  #       #keys = [var.lxc_container_user_sshpubkey_jenkins_agent]
-  #       password = "lvsblvsb"
-  #     }
-  #   }
-  # }
-
-  # dynamic initialization {
   initialization {
-    # for_each = var.lxc_container_is_template ? [] : [ "container is not a template" ]
-
-    # content {
     hostname = var.lxc_container_hostname
 
     user_account {
@@ -87,7 +74,6 @@ resource "proxmox_virtual_environment_container" "this" {
       domain  = var.lxc_container_dns_domain
       servers = var.lxc_container_dns_servers
     }
-    # }
   }
 
   lifecycle {
@@ -98,7 +84,5 @@ resource "proxmox_virtual_environment_container" "this" {
 }
 
 resource "terraform_data" "version_date_replacement" {
-  # count = var.lxc_container_is_template ? 0 : 1
-  # for_each = var.lxc_container_is_template ? [] : [ "container is not a template" ]
   triggers_replace = var.lxc_container_version_date
 }

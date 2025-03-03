@@ -27,7 +27,7 @@ variable "virtual_machine_gateway" {
 variable "virtual_machine_dns_servers" {
   description = "dns servers list"
   type        = list(string)
-  default     = ["192.168.0.3"]
+  # default     = ["192.168.0.3"]
 }
 variable "virtual_machine_is_template" {
   description = "is VM a template ?"

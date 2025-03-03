@@ -19,7 +19,7 @@ users:
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
     ssh_authorized_keys:
-      - ssh-rsa ${sshpubkey_jenkins_agent}
+      - ssh-rsa ${sshpubkey_ansible}
 
 # power_state:
 #     delay: now
