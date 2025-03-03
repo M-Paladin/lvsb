@@ -1,89 +1,117 @@
 ---
-- name: Include Docker Install playbook
-  ansible.builtin.import_playbook: docker.yml
-
 - name: Configure Debian VM with dockerized Jenkins, 1 server and 1 agent (Ansible and Opentofu)
   hosts: "{{ host }}"
-  remote_user: jenkins
-  become: true
+  #become: true
+
+  # roles:
+  #   - no_ipv6
+  #   - set_locale
+  #   - docker
+  #   - nfs_client
 
   tasks:
-    - name: CIFS mount - Create /home/jenkins/.cifs directory
-      ansible.builtin.file: 
-        path: "/home/jenkins/.cifs"
-        owner: jenkins
-        group: jenkins
-        state: directory
-        mode: '0700'
-
-    - name: CIFS mount - Copy credentials file
-      ansible.builtin.copy:
-        src: /run/secrets/cifs_credentials
-        dest: /home/jenkins/.cifs/credentials
-        owner: jenkins
-        group: jenkins
-        mode: '0600'
-
-    - name: CIFS mount - Mount needed datas for container on host
-      ansible.posix.mount:
-        src: "{{ data_source }}"
-        path: "{{ data_mountpoint }}"
-        opts: "rw,credentials=/home/jenkins/.cifs/credentials,uid=1000,gid=100"
-        state: mounted
-        fstype: cifs
-
-    - name: CIFS mount - Copy ssh private keys file locally
-      ansible.builtin.copy:
-        src: "{{ data_mountpoint }}/sshkeys/{{ item }}"
-        remote_src: true
-        dest: /home/jenkins/.ssh/{{ item }}
-        owner: jenkins
-        group: jenkins
-        mode: '0600'
+    - name: Debian - Prerequisites
+      ansible.builtin.include_role:
+        name: "{{ item }}"
       loop:
-        - jenkins_agent_key
-        - jenkins_server_key
+        - set_locale
+        - docker
+        - nfs_client
+        - no_ipv6
+
+    # - name: Debian - Copy ssh private keys file locally from NFS
+    #   ansible.builtin.copy:
+    #     src: "{{ data_local_path }}/sshkeys/{{ item }}"
+    #     remote_src: true
+    #     dest: "/home/{{ ansible_user }}/.ssh/{{ item }}"
+    #     owner: "{{ ansible_user }}"
+    #     group: "{{ ansible_user }}"
+    #     mode: 0600
+    #   loop:
+    #     - "{{ cicd_agent.service_name }}_key"
+    #     - "{{ cicd_server.service_name }}_key"
+
+    # - name: Debian - Add ansible user to NFS group (users)
+    #   ansible.builtin.user:
+    #     name: "{{ ansible_user }}"
+    #     groups: "{{ nfs_share_owner.group }}"
+    #     append: yes
+    #   become: true
+
+    # - name: Debian - Create a symbolic link for needed paths for Jenkins
+    #   ansible.builtin.file:
+    #     src: "{{ data_local_path_git }}/{{ item }}"
+    #     #dest: "/home/{{ ansible_user }}/{{ item }}"
+    #     dest: "./{{ item }}"
+    #     #owner: "{{ ansible_user }}"
+    #     #group: "{{ ansible_user }}"
+    #     state: link
+    #   loop:
+    #     - "{{ cicd_agent.service_name }}"
+    #     - "{{ cicd_server.service_name }}"
+    #     - sshkeys
+    #   #become: true
+    #   #become_user: "{{ ansible_user }}"
+
+#     - name: Debian - Copy plugin file locally from NFS
+#       ansible.builtin.copy:
+# #        src: "/home/{{ ansible_user }}/{{ cicd_server.service_name }}/plugins.txt"
+#         src: "./{{ cicd_server.service_name }}/plugins.txt"
+#         remote_src: true
+#         dest: "/home/{{ ansible_user }}/plugins.txt"
+#         #owner: "{{ ansible_user }}"
+#         #group: "{{ ansible_user }}"
+
+    - name: Debian - Copy needed files locally from NFS
+      ansible.builtin.copy:
+#        src: "/home/{{ ansible_user }}/{{ cicd_server.service_name }}/plugins.txt"
+        src: "{{ item.path }}/{{ item.file }}"
+        remote_src: true
+        dest: "./{{ item.file }}"
+        owner: "{{ nfs_share_owner.uid }}"
+        group: "{{ nfs_share_owner.gid }}"
+        mode: "{{ item.mode | default(omit) }}"
+      loop:
+        - path: "{{ data_local_path_git }}/{{ cicd_server.service_name }}"
+          file: plugins.txt
+        - path: "{{ data_local_path_git }}/sshkeys"
+          file: "{{ cicd_server.service_name }}_key"
+          mode: '0600'
+        - path: "{{ data_local_path_git }}/sshkeys"
+          file: "{{ automation.service_name }}_key"
+          mode: '0600'
+      become: true
 
     - name: Jenkins - Test plugin site is reachable
       ansible.builtin.uri:
         url: https://updates.jenkins.io/update-center.json
         status_code:
           - 200
-      until: uri_output.status == 200
+      until: jenkins_update_center_uri_output.status == 200
       retries: 12
       delay: 5
-      register: uri_output
-      
-    - name: Docker/Jenkins - Create docker-compose file
-      ansible.builtin.template:
-        src: ./templates/docker-compose.yml.j2
-        dest: "{{ data_mountpoint }}/docker-compose-{{ inventory_hostname }}.yml"
-        lstrip_blocks: yes
+      register: jenkins_update_center_uri_output
 
-    - name: Docker/Jenkins - Build images and Deploy containers
-      community.docker.docker_compose_v2:
-        project_src: "{{ data_mountpoint }}"
-        files:
-          - "{{ data_mountpoint }}/docker-compose-{{ inventory_hostname }}.yml"
-        build: always
-        remove_orphans: true
-      register: jenkins_service_build_deploy
-
-    - name: Docker/Jenkins - Check build and deployment result
-      debug: msg="{{ jenkins_service_build_deploy.stdout_lines }}"
+    - name: Docker - Deploy Jenkins containers
+      ansible.builtin.import_role:
+        name: docker_compose
+      # vars:
+      #   docker_compose_services_up:
+      #     - "{{ cicd_server.service_name }}"
+      #     - "{{ cicd_agent.service_name }}"
 
     - name: Jenkins server - Wait until HTTP status is 200
-      uri:
+      ansible.builtin.uri:
         url: "http://{{ ansible_host }}:8080/login"
         validate_certs: no
         status_code:
           - 200
-      until: uri_output.status == 200
+      until: jenkins_server_uri_output.status == 200
       retries: 12
       delay: 5
-      register: uri_output
+      register: jenkins_server_uri_output
       
-    - name: Jenkins server - Download jenkins-cli.jar in container
+    - name: Jenkins server - Download jenkins-cli.jar from and inside container
       community.docker.docker_container_exec:
         container: "{{ cicd_server.service_name }}"
         command: curl -o /tmp/jenkins-cli.jar http://{{ ansible_host }}:8080/jnlpJars/jenkins-cli.jar
@@ -92,5 +120,5 @@
       community.docker.docker_container_exec:
         container: "{{ cicd_server.service_name }}"
         command: java -jar /tmp/jenkins-cli.jar -s http://{{ ansible_host }}:8080/ -auth "admin:password" reload-jcasc-configuration
-      register: jenkins_config_reload
+      #register: jenkins_config_reload
 ...

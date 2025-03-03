@@ -1,12 +1,24 @@
 ---
-data_source: "//192.168.0.241/DocCommun/Informatique/git/lvsb/jenkins_VM"
+ansible_user: ansible
+ansible_ssh_private_key_file: "/run/secrets/ansible_private_ssh_key"
 
+data_remote_source: "{{ nfs_server_vip | ansible.utils.ipaddr('address') }}:" #":/git_lvsb/jenkins_VM"
+mounts:
+  - git_lvsb
+  - config
+data_local_path_git: "{{ data_local_path }}/git_lvsb/jenkins_VM"
+data_local_path_config: "{{ data_local_path }}/config"
+
+local_registry_name: lvsb
 ##
 # CICD server : Jenkins
 ##
 cicd_server:
   # https://hub.docker.com/r/jenkins/jenkins/tags
+  registry_name: jenkins
+  image_name: jenkins
   version: 2.460-alpine-jdk21
+  build_version: '2.460'
   service_name: jenkins_server
 
 ##
@@ -14,24 +26,67 @@ cicd_server:
 ##
 cicd_agent:
   # https://hub.docker.com/r/jenkins/ssh-agent/tags
-  version: 5.38.0-alpine3.20-jdk21
+  registry_name: jenkins
+  image_name: ssh-agent
+  version: 5.38.0-alpine-jdk21
+  build_version: '5.38.0'
   service_name: jenkins_agent
 
+##
+# Automation : Ansible
+##
+automation:
+  image_name: alpine
+  version: '3.21'
+  build_version: '2.18.1'
+  service_name: ansible
+  code_dir: /ansible-playbooks
+
+##
+# IaC : Opentofu
+##
+iac:
+  image_name: alpine
+  version: '3.21'
+  build_version: '1.7.1'
+  service_name: opentofu
+  code_dir: /opentofu/proxmox
+  tf_data_dir: /opentofu/tf_data_dir
+  tfstate: /opentofu/tfstate
+
 services:
+  # CI/CD server
   - name: "{{ cicd_server.service_name }}"
     dockerfile: |-
-      FROM jenkins/jenkins:{{ cicd_server.version }}
-      COPY --chown=jenkins:jenkins ./{{ cicd_server.service_name }}/plugins.txt /usr/share/jenkins/ref/plugins.txt
+      FROM {{ cicd_server.registry_name }}/{{ cicd_server.image_name }}:{{ cicd_server.version }}
+
+      USER root
+      ENV JENKINS_HOME=/var/lib/jenkins
+      ENV COPY_REFERENCE_FILE_LOG=/var/lib/jenkins/copy_reference_file.log
+
+      RUN <<-EORUN
+      apk add --update --no-cache shadow
+      groupmod -g {{ nfs_share_owner.uid }} jenkins
+      usermod -u {{ nfs_share_owner.uid }} jenkins
+      usermod -a -G {{ nfs_share_owner.group }} jenkins
+      mkdir /var/lib/jenkins
+      usermod -d /var/lib/jenkins jenkins
+      chown jenkins:jenkins /var/lib/jenkins /usr/share/jenkins/ref
+      EORUN
+
+      USER jenkins
+
+      COPY --chown=jenkins:jenkins ./plugins.txt /usr/share/jenkins/ref/plugins.txt
       RUN jenkins-plugin-cli --plugins -f /usr/share/jenkins/ref/plugins.txt
-    image_name: "lvsb/{{ cicd_server.service_name }}:{{ cicd_server.version }}"
+    image_name: "{{ local_registry_name }}/{{ cicd_server.service_name }}:{{ cicd_server.build_version }}"
     container_name: "{{ cicd_server.service_name }}"
     volumes:
-      - "./{{ cicd_server.service_name }}/casc.d:/var/jenkins_home/casc.d/:ro"
-      - "./{{ cicd_server.service_name }}/jobdsl:/var/jenkins_home/jobdsl/:rw"
+      - "{{ data_local_path_git }}/{{ cicd_server.service_name }}/casc.d:/var/jenkins_home/casc.d/:ro"
+      - "{{ data_local_path_git }}/{{ cicd_server.service_name }}/jobdsl:/var/jenkins_home/jobdsl/:rw"
     ports:
       - "8080:8080"
       - "50000:50000"
-    environment_variables:
+    environment:
       - "JAVA_OPTS=-Djenkins.install.runSetupWizard=false"
       - "CASC_JENKINS_CONFIG=/var/jenkins_home/casc.d/casc.yaml"
       - "SSH_PRIVATE_KEY_PATH=/run/secrets/{{ cicd_server.service_name }}_private_ssh_key"
@@ -40,33 +95,88 @@ services:
       - "JENKINS_IP={{ ansible_host }}"
     secrets:
       - name: "{{ cicd_server.service_name }}_private_ssh_key"
-        file: "/home/jenkins/.ssh/{{ cicd_server.service_name }}_key"
-
+        file: "./{{ cicd_server.service_name }}_key"
+  # CI/CD agent
   - name: "{{ cicd_agent.service_name }}"
     dockerfile: |-
-      FROM jenkins/ssh-agent:{{ cicd_agent.version }}
-      RUN apk add --update --no-cache python3 curl; \
-          rm -rf /usr/lib/python3.*/EXTERNALLY-MANAGED; \
-          python3 -m ensurepip; \
-          pip3 install --no-cache --upgrade pip ansible jmespath dnspython netaddr; \
-          curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh; \
-          chmod +x install-opentofu.sh; \
-          ./install-opentofu.sh --install-method apk; \
-          rm install-opentofu.sh
-    image_name: "lvsb/{{ cicd_agent.service_name }}:{{ cicd_agent.version }}"
+      FROM {{ cicd_agent.registry_name }}/{{ cicd_agent.image_name }}:{{ cicd_agent.version }}
+
+      RUN <<-EORUN
+      apk add --update --no-cache docker
+      cat <<-EOF > /etc/profile.d/99aliases.sh
+      alias ansible="docker exec -w {{ automation.code_dir }} -it {{ automation.service_name }} ansible"
+      alias ansible-playbook="docker exec -w {{ automation.code_dir }} -it {{ automation.service_name }} ansible-playbook"
+      alias tofu="docker exec -w {{ iac.code_dir }} -it {{ iac.service_name }} tofu"
+      EOF
+      EORUN
+
+      ENV ENV=/etc/profile
+    image_name: "{{ local_registry_name }}/{{ cicd_agent.service_name }}:{{ cicd_agent.build_version }}"
     container_name: "{{ cicd_agent.service_name }}"
     volumes:
-      - "./{{ cicd_agent.service_name }}/ansible:/home/jenkins/ansible-playbooks:ro"
-      - "./{{ cicd_agent.service_name }}/opentofu:/home/jenkins/opentofu-proxmox:rw"
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "2200:22"
-    environment_variables:
-      - JENKINS_AGENT_SSH_PUBKEY=ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC3/o6LtweHx/uVUmp7IhNc9Lf+tb7RNnezpKWWC/OoLcKlbLUHVkhGnxGVsPV8rF/dqpUhAXcoXA2MhABxpA9D5ys7VizJrOvv6D+JcAx8SJ4VGq9sfzRWjPimeY0anKbdvQbJkywk8t/xs5dxwQU9Q53HsLYA4/n1oUhIArCTnQ7eYoZwuokIoIMgFYhmyytQcM4C1IHnd3ukyLVD6C5uBcdgcxjS7YbHkOckv0KoKQfTgYFvQ6sHUbfN1+hHJZliTKS+wTXwS+wXYawV2uDtgdnsBJW7wvF3kwnzdDOHfH62yxIg3LQXJoGXoH8jNnB0xe5vHHB+drmKFN6ZAAlw7xRH+/MwBrUC7TkQNwwPuTEAJffp1gGwEn9aeWeEB2L7bCETMTBopc3rvMJlZoLHn6NE1lGY6MwqPrKdcm6BxanGAqQFK/OBzYRwBq2ZBHZE/kTCx8rGjGJ5qjm8os0lHX0FnTXoAGD2nkXrjRbD/M6ijmNC3NTGbBQx2A3iP8c=
-      - JAVA_HOME=/opt/java/openjdk/bin/java
-    secrets:
-      - name: "{{ cicd_agent.service_name }}_private_ssh_key"
-        file: "/home/jenkins/.ssh/{{ cicd_agent.service_name }}_key"
-      - name: "cifs_credentials"
-        file: "/home/jenkins/.cifs/credentials"
+    environment:
+      - "JENKINS_AGENT_SSH_PUBKEY=ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC3/o6LtweHx/uVUmp7IhNc9Lf+tb7RNnezpKWWC/OoLcKlbLUHVkhGnxGVsPV8rF/dqpUhAXcoXA2MhABxpA9D5ys7VizJrOvv6D+JcAx8SJ4VGq9sfzRWjPimeY0anKbdvQbJkywk8t/xs5dxwQU9Q53HsLYA4/n1oUhIArCTnQ7eYoZwuokIoIMgFYhmyytQcM4C1IHnd3ukyLVD6C5uBcdgcxjS7YbHkOckv0KoKQfTgYFvQ6sHUbfN1+hHJZliTKS+wTXwS+wXYawV2uDtgdnsBJW7wvF3kwnzdDOHfH62yxIg3LQXJoGXoH8jNnB0xe5vHHB+drmKFN6ZAAlw7xRH+/MwBrUC7TkQNwwPuTEAJffp1gGwEn9aeWeEB2L7bCETMTBopc3rvMJlZoLHn6NE1lGY6MwqPrKdcm6BxanGAqQFK/OBzYRwBq2ZBHZE/kTCx8rGjGJ5qjm8os0lHX0FnTXoAGD2nkXrjRbD/M6ijmNC3NTGbBQx2A3iP8c="
+      - "JAVA_HOME=/opt/java/openjdk/bin/java"
+  # Automation
+  - name: "{{ automation.service_name }}"
+    #replicas: 0
+    #profiles: [on-demand]
+    dockerfile: |-
+      FROM {{ automation.image_name }}:{{ automation.version }}
 
+      RUN <<-EORUN
+      apk add --update --no-cache ansible bash openssh sshpass rsync py3-netaddr py3-jmespath py3-dnspython
+      addgroup -g {{ nfs_share_owner.uid }} {{ nfs_share_owner.name }}
+      adduser -u {{ nfs_share_owner.uid }} {{ nfs_share_owner.name }} -G {{ nfs_share_owner.name }} -D
+      EORUN
+
+      USER {{ nfs_share_owner.name }}
+
+      ENTRYPOINT ["/bin/sleep", "infinity"]
+    image_name: "{{ local_registry_name }}/{{ automation.service_name }}:{{ automation.build_version }}"
+    container_name: "{{ automation.service_name }}"
+    volumes:
+      - "{{ data_local_path_git }}/{{ cicd_agent.service_name }}/ansible:{{ automation.code_dir }}:ro"
+    secrets:
+      - name: "{{ automation.service_name }}_private_ssh_key"
+        file: "./{{ automation.service_name }}_key"
+  # IaC
+  - name: "{{ iac.service_name }}"
+    #profiles: [on-demand]
+    #replicas: 0
+    dockerfile: |-
+      FROM {{ iac.image_name }}:{{ iac.version }} AS builder
+
+      RUN <<-EORUN
+      apk add --update --no-cache curl gpg gpg-agent
+      curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
+      chmod +x install-opentofu.sh
+      ./install-opentofu.sh --install-method standalone --opentofu-version {{ iac.build_version }} --install-path / --symlink-path -
+      EORUN
+
+      FROM {{ iac.image_name }}:{{ iac.version }}
+
+      RUN <<-EORUN
+      addgroup -g {{ nfs_share_owner.uid }} {{ nfs_share_owner.name }}
+      adduser -u {{ nfs_share_owner.uid }} {{ nfs_share_owner.name }} -G {{ nfs_share_owner.name }} -D
+      mkdir -p {{ iac.tf_data_dir }}
+      chown {{ nfs_share_owner.name }}:{{ nfs_share_owner.name }} {{ iac.tf_data_dir }}
+      EORUN
+
+      COPY --from=builder /tofu /usr/local/bin/tofu
+
+      USER {{ nfs_share_owner.name }}
+
+      ENTRYPOINT ["/bin/sleep", "infinity"]
+    image_name: "{{ local_registry_name }}/{{ iac.service_name }}:{{ iac.build_version }}"
+    container_name: "{{ iac.service_name }}"
+    volumes:
+      - "{{ data_local_path_git }}/{{ cicd_agent.service_name }}/opentofu:{{ iac.code_dir }}:rw"
+      - "{{ data_local_path_config }}{{ iac.tf_data_dir }}:{{ iac.tf_data_dir }}:rw"
+      - "{{ data_local_path_config }}{{ iac.tfstate }}:{{ iac.tfstate }}:rw"
+    environment:
+      - "TF_DATA_DIR={{ iac.tf_data_dir }}"
 ...

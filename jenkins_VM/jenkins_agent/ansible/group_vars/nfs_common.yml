@@ -1,0 +1,7 @@
+---
+nfs_share_owner:
+  name: nfs_user
+  uid: "1001"
+  group: users
+  gid: "100"
+...
