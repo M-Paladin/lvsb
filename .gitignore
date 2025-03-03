@@ -2,7 +2,6 @@
 
 .vscode/
 sshkeys/
-docker-compose-*
 *.auto.tfvars
 .terraform/
 *terraform*
@@ -12,5 +11,5 @@ vault/
 # to remove later
 127.0.0.1.yml
 *test.yml
-Dockerfile
 archives/
+.st*
