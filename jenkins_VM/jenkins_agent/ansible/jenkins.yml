@@ -1,13 +1,6 @@
 ---
 - name: Configure Debian VM with dockerized Jenkins, 1 server and 1 agent (Ansible and Opentofu)
   hosts: "{{ host }}"
-  #become: true
-
-  # roles:
-  #   - no_ipv6
-  #   - set_locale
-  #   - docker
-  #   - nfs_client
 
   tasks:
     - name: Debian - Prerequisites
@@ -19,52 +12,8 @@
         - nfs_client
         - no_ipv6
 
-    # - name: Debian - Copy ssh private keys file locally from NFS
-    #   ansible.builtin.copy:
-    #     src: "{{ data_local_path }}/sshkeys/{{ item }}"
-    #     remote_src: true
-    #     dest: "/home/{{ ansible_user }}/.ssh/{{ item }}"
-    #     owner: "{{ ansible_user }}"
-    #     group: "{{ ansible_user }}"
-    #     mode: 0600
-    #   loop:
-    #     - "{{ cicd_agent.service_name }}_key"
-    #     - "{{ cicd_server.service_name }}_key"
-
-    # - name: Debian - Add ansible user to NFS group (users)
-    #   ansible.builtin.user:
-    #     name: "{{ ansible_user }}"
-    #     groups: "{{ nfs_share_owner.group }}"
-    #     append: yes
-    #   become: true
-
-    # - name: Debian - Create a symbolic link for needed paths for Jenkins
-    #   ansible.builtin.file:
-    #     src: "{{ data_local_path_git }}/{{ item }}"
-    #     #dest: "/home/{{ ansible_user }}/{{ item }}"
-    #     dest: "./{{ item }}"
-    #     #owner: "{{ ansible_user }}"
-    #     #group: "{{ ansible_user }}"
-    #     state: link
-    #   loop:
-    #     - "{{ cicd_agent.service_name }}"
-    #     - "{{ cicd_server.service_name }}"
-    #     - sshkeys
-    #   #become: true
-    #   #become_user: "{{ ansible_user }}"
-
-#     - name: Debian - Copy plugin file locally from NFS
-#       ansible.builtin.copy:
-# #        src: "/home/{{ ansible_user }}/{{ cicd_server.service_name }}/plugins.txt"
-#         src: "./{{ cicd_server.service_name }}/plugins.txt"
-#         remote_src: true
-#         dest: "/home/{{ ansible_user }}/plugins.txt"
-#         #owner: "{{ ansible_user }}"
-#         #group: "{{ ansible_user }}"
-
-    - name: Debian - Copy needed files locally from NFS
+    - name: Debian - Copy needed files locally from NFS server
       ansible.builtin.copy:
-#        src: "/home/{{ ansible_user }}/{{ cicd_server.service_name }}/plugins.txt"
         src: "{{ item.path }}/{{ item.file }}"
         remote_src: true
         dest: "./{{ item.file }}"
@@ -95,10 +44,6 @@
     - name: Docker - Deploy Jenkins containers
       ansible.builtin.import_role:
         name: docker_compose
-      # vars:
-      #   docker_compose_services_up:
-      #     - "{{ cicd_server.service_name }}"
-      #     - "{{ cicd_agent.service_name }}"
 
     - name: Jenkins server - Wait until HTTP status is 200
       ansible.builtin.uri:
@@ -120,5 +65,4 @@
       community.docker.docker_container_exec:
         container: "{{ cicd_server.service_name }}"
         command: java -jar /tmp/jenkins-cli.jar -s http://{{ ansible_host }}:8080/ -auth "admin:password" reload-jcasc-configuration
-      #register: jenkins_config_reload
 ...

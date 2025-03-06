@@ -1,0 +1,9 @@
+---
+- name: Remount timer service | Restart
+  ansible.builtin.service:
+    name: nfs-remount.timer
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  become: true
+...

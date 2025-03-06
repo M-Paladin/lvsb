@@ -1,17 +1,82 @@
 ---
-- name: Debian - Install required packages
-  ansible.builtin.package:
-    name: nfs-common
-  become: true
+- block:
+  - name: Debian - Install required packages
+    ansible.builtin.package:
+      name: nfs-common
 
-- name: NFS - Mount needed data
-  ansible.posix.mount:
-    src: "{{ data_remote_source }}/{{ nfs_client_item }}"
-    path: "{{ data_local_path }}/{{ nfs_client_item }}"
-    state: mounted
-    fstype: nfs
-  loop: "{{ mounts }}"
-  loop_control:
-    loop_var: nfs_client_item
+  - name: NFS - Mount needed data
+    ansible.posix.mount:
+      src: "{{ data_remote_source }}/{{ nfs_client_item }}"
+      path: "{{ data_local_path }}/{{ nfs_client_item }}"
+      state: mounted
+      fstype: nfs
+    loop: "{{ mounts }}"
+    loop_control:
+      loop_var: nfs_client_item
+
+  - name: NFS - Create the shares monitoring script
+    ansible.builtin.copy:
+      dest: /usr/local/sbin/check_nfs_mount.sh
+      mode: '0755'
+      content: |
+        #!/bin/bash
+        if ! mountpoint -q "{{ data_local_path }}/{{ mounts[0] }}"; then
+            echo "$(date): NFS share(s) connectivity lost !"
+            echo "$(date): NFS share(s) connectivity lost !" | systemd-cat -t nfs-remount
+            umount -lfa -t nfs4 2>/dev/null
+            sleep 1
+            mount -t nfs -a
+            if [ $? -eq 0 ]; then
+                echo "$(date): NFS share(s) remounted successfully."
+                echo "$(date): NFS share(s) remounted successfully." | systemd-cat -t nfs-remount
+            else
+                echo "$(date): Failed to remount NFS share(s)."
+                echo "$(date): Failed to remount NFS share(s)." | systemd-cat -t nfs-remount
+            fi
+        fi
+    notify:
+      - Remount timer service | Restart
+
+  - name: NFS - Create systemd remount service
+    ansible.builtin.copy:
+      dest: /etc/systemd/system/nfs-remount.service
+      mode: '0755'
+      content: |
+        [Unit]
+        Description=NFS Remount Service
+        After=network.target
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/check_nfs_mount.sh
+
+  - name: NFS - Create systemd remount timer service
+    ansible.builtin.copy:
+      dest: /etc/systemd/system/nfs-remount.timer
+      mode: '0755'
+      content: |
+        [Unit]
+        Description=NFS Remount Timer
+
+        [Timer]
+        AccuracySec=1s
+        OnCalendar=*:*:0/5
+        Unit=nfs-remount.service
+
+        [Install]
+        WantedBy=timers.target
+    notify:
+      - Remount timer service | Restart
+
+  - name: NFS - Flush "Remount timer service | Restart" handler
+    ansible.builtin.meta: flush_handlers
+
+  - name: NFS - Start remount service if needed
+    ansible.builtin.service:
+      name: nfs-remount.timer
+      state: started
+      enabled: true
+      daemon_reload: true
+
   become: true
 ...
