@@ -1,6 +1,7 @@
 ---
 - name: Configure Debian VM with dockerized Jenkins, 1 server and 1 agent (Ansible and Opentofu)
   hosts: "{{ host }}"
+  gather_facts: no
 
   tasks:
     - name: Debian - Prerequisites
