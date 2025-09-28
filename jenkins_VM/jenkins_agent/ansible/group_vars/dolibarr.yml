@@ -1,11 +1,18 @@
 ---
 ansible_user: ansible
-data_remote_source: "{{ nfs_server_vip | ansible.utils.ipaddr('address') }}:config"
+ansible_ssh_private_key_file: "/run/secrets/ansible_private_ssh_key"
 
-crm_path: "{{ data_local_path }}/dolibarr"
+#data_remote_source: "{{ nfs_server_vip | ansible.utils.ipaddr('address') }}:config"
+mounts:
+  - config
+data_local_path_config: "{{ data_local_path }}/config"
+
+crm_path: "{{ data_local_path_config }}/dolibarr"
 crm_db_path: /opt/dolibarr/mariadb
 crm_doc_path: "{{ crm_path }}/documents"
 crm_custom_path: "{{ crm_path }}/custom"
+
+restore_database: false
 
 ##
 # CRM: dolibarr
@@ -39,8 +46,6 @@ services:
       DOLI_INIT_DEMO: 0
       DOLI_COMPANY_NAME: Hexalence
       DOLI_COMPANY_COUNTRYCODE: FI
-      # PHP_INI_DATE_TIMEZONE: Europe/Helsinki
-      # TZ: Europe/Helsinki
     ports:
       - "80:80"
     volumes:
@@ -55,9 +60,6 @@ services:
       MYSQL_DATABASE: dolidb
       MYSQL_USER: dolidbuser
       MYSQL_PASSWORD: dolidbpass
-      # TZ: Europe/Helsinki
     volumes:
       - "{{ crm_db_path }}:/var/lib/mysql"
-
-# Tout mettre en UTC et expliquer à Steph
 ...
