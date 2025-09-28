@@ -4,6 +4,15 @@
     ansible.builtin.package:
       name: nfs-common
 
+  - name: Debian - Create NFS user
+    ansible.builtin.user:
+      name: "{{ nfs_share_owner.name}}"
+      group: "{{ nfs_share_owner.group}}"
+      update_password: on_create
+      shell: /sbin/nologin
+      create_home: false
+      uid: "{{ nfs_share_owner.uid }}"
+
   - name: NFS - Mount needed data
     ansible.posix.mount:
       src: "{{ data_remote_source }}/{{ nfs_client_item }}"
