@@ -5,13 +5,16 @@
   become: true
   gather_facts: no
 
-  roles:
-    - lxc_ansible_user
-    - no_ipv6
-    - set_locale
-    - repository
-
   tasks:
+    - name: Debian - Prerequisites
+      ansible.builtin.include_role:
+        name: "{{ item }}"
+      loop:
+        - lxc_ansible_user
+        - set_locale
+        - repository
+        - no_ipv6
+
     - name: Debian - Install required packages for HA NFS server
       ansible.builtin.package:
         name:
@@ -29,13 +32,6 @@
         uid: "{{ nfs_share_owner.uid }}"
       tags:
         - nfs
-
-    # - name: Debian - Mount hard disk
-    #   ansible.posix.mount:
-    #     path: "{{ data_remote_source }}"
-    #     src: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1-part1
-    #     fstype: ext4
-    #     state: mounted
 
     - name: Debian - Create NFS shared folders
       ansible.builtin.file:
@@ -67,7 +63,6 @@
         - NFS kernel server service | Restart
       tags:
         - nfs
-#{{ local_network_base }}{{ host.ip }}{% for ro_client in host.ro %} {{ host.ip }}.{{ ro_client }}.ro.nfs{% endfor %}{% for rw_client in host.rw %} {{ host.ip }}.{{ rw_client }}.rw.nfs{% endfor %}
 
     - name: Debian - Create Bind Mounts for NFS exports
       ansible.posix.mount:
@@ -84,9 +79,7 @@
       ansible.builtin.template:
         src: ./templates/nfs-exports.j2
         dest: /etc/exports
-        owner: root
-        group: root
-        mode: 0644
+        mode: '0644'
         lstrip_blocks: yes
       notify:
         - NFS kernel server service | Restart
@@ -97,9 +90,7 @@
       ansible.builtin.template:
         src: ./templates/keepalived.conf.j2
         dest: /etc/keepalived/keepalived.conf
-        owner: root
-        group: root
-        mode: 0644
+        mode: '0644'
         lstrip_blocks: yes
       notify:
         - Keepalived service | Restart
@@ -112,47 +103,64 @@
         state: directory
         owner: "{{ nfs_share_owner.name }}"
         group: "{{ nfs_share_owner.group }}"
-        #mode: u=rwx,g=rwx,o=rx,g+s
         recurse: true
       tags:
         - syncthing
 
-    - name: Syncthing - Check if certs exists
-      ansible.builtin.stat: 
-        path: "{{ syncthing_config_path }}/cert.pem"
-      register: syncthing_cert_file
+    - name: Syncthing - Copy certs in config directory
+      ansible.builtin.copy:
+        src: "./credentials/{{ item[0] }}/{{ item[1] }}"
+        dest: "{{ config_path }}/{{ item[0] }}/syncthing/{{ item[1] }}"
+      loop: "{{ [inventory_hostname, syncthing_peer_name] | product(['cert.pem', 'key.pem']) | list }}"
       tags:
         - syncthing
 
-    - name: Syncthing - Generate certs and retrive device ID
+    # - name: Syncthing - Check if certs exists
+    #   ansible.builtin.stat: 
+    #     path: "{{ syncthing_config_path }}/cert.pem"
+    #   register: syncthing_cert_file
+    #   tags:
+    #     - syncthing
+
+    - name: Syncthing - Retrive device ID from certs
       ansible.builtin.shell: |
-        sudo -u {{ nfs_share_owner.name }} env STGUIAPIKEY="{{ syncthing_api_key }}" syncthing generate --config={{ syncthing_config_path }} --no-default-folder | awk '/Device/{print $NF}'
-      args:
-        chdir: "{{ syncthing_config_path }}"
+        sudo -u {{ nfs_share_owner.name }} env STGUIAPIKEY="{{ hostvars[item]['syncthing_api_key'] }}" syncthing generate --config={{ config_path }}/{{ item }}/syncthing --no-default-folder | awk '/Device/{print $NF}'
       register: syncthing_device_id
-      changed_when: not syncthing_cert_file.stat.exists
+      loop: 
+        - "{{ inventory_hostname }}"
+        - "{{ syncthing_peer_name }}"
       tags:
         - syncthing
 
-    # Find a way to deal with that if peer not deployed in the same time
-    - name: Syncthing - Check if peer certs exists
-      ansible.builtin.stat: 
-        path: "{{ syncthing_peer_config_path }}/cert.pem"
-      register: syncthing_peer_cert_file
-      delegate_to: "{{ syncthing_peer_name }}"
-      tags:
-        - syncthing
+    # - name: Syncthing - Retrive device ID from certs
+    #   ansible.builtin.shell: |
+    #     sudo -u {{ nfs_share_owner.name }} env STGUIAPIKEY="{{ syncthing_api_key }}" syncthing generate --config={{ syncthing_config_path }} --no-default-folder | awk '/Device/{print $NF}'
+    #   args:
+    #     chdir: "{{ syncthing_config_path }}"
+    #   register: syncthing_device_id
+    #   changed_when: not syncthing_cert_file.stat.exists
+    #   tags:
+    #     - syncthing
 
-    - name: Syncthing - Retrieve peer certs and device ID
-      ansible.builtin.shell: |
-        sudo -u {{ nfs_share_owner.name }} env STGUIAPIKEY="{{ hostvars[syncthing_peer_name]['syncthing_api_key'] }}" syncthing generate --config={{ syncthing_peer_config_path }} --no-default-folder | awk '/Device/{print $NF}'
-      args:
-        chdir: "{{ syncthing_peer_config_path }}"
-      register: syncthing_peer_device_id
-      delegate_to: "{{ syncthing_peer_name }}"
-      changed_when: not syncthing_peer_cert_file.stat.exists
-      tags:
-        - syncthing
+    # # Find a way to deal with that if peer not already deployed in the same time
+    # - name: Syncthing - Check if peer certs exists
+    #   ansible.builtin.stat: 
+    #     path: "{{ syncthing_peer_config_path }}/cert.pem"
+    #   register: syncthing_peer_cert_file
+    #   delegate_to: "{{ syncthing_peer_name }}"
+    #   tags:
+    #     - syncthing
+
+    # - name: Syncthing - Retrieve peer certs and device ID
+    #   ansible.builtin.shell: |
+    #     sudo -u {{ nfs_share_owner.name }} env STGUIAPIKEY="{{ hostvars[syncthing_peer_name]['syncthing_api_key'] }}" syncthing generate --config={{ syncthing_peer_config_path }} --no-default-folder | awk '/Device/{print $NF}'
+    #   args:
+    #     chdir: "{{ syncthing_peer_config_path }}"
+    #   register: syncthing_peer_device_id
+    #   delegate_to: "{{ syncthing_peer_name }}"
+    #   changed_when: not syncthing_peer_cert_file.stat.exists
+    #   tags:
+    #     - syncthing
 
     - name: Syncthing - Create configuration file
       ansible.builtin.template:

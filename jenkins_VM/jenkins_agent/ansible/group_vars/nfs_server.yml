@@ -1,19 +1,13 @@
 ---
 data_local_path: "/srv/datadisk"
-
-syncthing_config_path: "{{ data_local_path }}/Informatique/config/{{ inventory_hostname }}/syncthing"
-syncthing_peer_config_path: "{{ data_local_path }}/Informatique/config/{{ syncthing_peer_name }}/syncthing"
+config_path: "{{ data_local_path }}/Informatique/config"
+syncthing_config_path: "{{ config_path }}/{{ inventory_hostname }}/syncthing"
+#syncthing_peer_config_path: "{{ data_local_path }}/Informatique/config/{{ syncthing_peer_name }}/syncthing"
 
 repository_application: Syncthing
 repository_gpg_key_remote_url: https://syncthing.net/release-key.gpg
 repository_gpg_key_local_path: /etc/apt/keyrings/syncthing-archive-keyring.gpg
 repository_remote_url: https://apt.syncthing.net/ syncthing stable
-
-nfs_share_owner:
-  name: "nfs_user"
-  uid: "1001"
-  group: "users"
-  gid: "100"
 
 local_network: "192.168.0.0/24"
 

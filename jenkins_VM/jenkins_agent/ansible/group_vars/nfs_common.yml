@@ -1,4 +1,6 @@
 ---
+data_remote_source: "{{ nfs_server_vip | ansible.utils.ipaddr('address') }}:"
+
 nfs_share_owner:
   name: nfs_user
   uid: "1001"
