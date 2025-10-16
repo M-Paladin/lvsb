@@ -125,6 +125,7 @@ module "lxc_containers" {
   lxc_container_downloaded_file_id = each.value.cloud_image_id #"local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst" # module.cloud_images[each.value.cloud_image].cloud_image_downloaded_file_id
   lxc_raw_disk_path                = each.value.raw_disk_path
   lxc_container_is_unpriviledged   = each.value.unpriviledged
+  lxc_container_startup_order      = each.value.startup_order
 
   # depends_on = [module.lxc_container_templates]
   depends_on = [module.cloud_images]
