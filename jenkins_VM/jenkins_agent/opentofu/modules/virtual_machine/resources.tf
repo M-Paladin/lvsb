@@ -12,7 +12,7 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   cpu {
     architecture = "x86_64"
-    type  = var.virtual_machine_hostname == "events" ? "host" : "x86-64-v2-AES"
+    type  = "x86-64-v2-AES"
     cores = var.virtual_machine_cpu_cores
   }
 

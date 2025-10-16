@@ -26,10 +26,6 @@ all:
       hosts:
         dns_ext_1:
           ansible_host: 192.168.0.5
-    events:
-      hosts:
-        events_1:
-          ansible_host: 192.168.0.70
     dolibarr:
       hosts:
         dolibarr_1:
@@ -44,7 +40,6 @@ all:
         nfs_server_2:
         jenkins_1:
         jenkins_2:
-        events_1:
         dolibarr_1:
         grocy_1:
 ...
