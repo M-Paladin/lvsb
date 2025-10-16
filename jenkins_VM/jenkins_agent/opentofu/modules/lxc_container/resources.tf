@@ -3,6 +3,10 @@ resource "proxmox_virtual_environment_container" "this" {
   tags          = var.lxc_container_tags
   unprivileged  = var.lxc_container_is_unpriviledged
 
+  startup {
+    order = var.lxc_container_startup_order
+  }
+
   cpu {
     cores = var.lxc_container_cpu_cores
   }

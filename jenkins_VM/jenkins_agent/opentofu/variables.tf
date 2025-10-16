@@ -105,6 +105,7 @@ variable "lxc_containers" {
       cloud_image_id: Image ID used to create the container (storage:type/image_name)
       raw_disk_path : Dev path for the disk (used for passthrough)
       unpriviledged : is container unpriviledged
+      startup_order : Container startup order
     }
   EOT
   type = map(object({
@@ -118,6 +119,7 @@ variable "lxc_containers" {
     cloud_image_id = string
     raw_disk_path  = optional(string, null)
     unpriviledged  = optional(bool, true)
+    startup_order  = optional(number, null)
   }))
 }
 
