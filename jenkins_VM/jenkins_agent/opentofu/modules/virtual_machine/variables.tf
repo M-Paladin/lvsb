@@ -5,7 +5,7 @@ variable "virtual_machine_datastore_snippets" {
   default     = "local"
 }
 variable "virtual_machine_datastore_disk" {
-  description = "Proxmox datastore for VM disk"
+  description = "Proxmox datastore for disk"
   type        = string
   # default     = "cephstorage"
 }
@@ -35,7 +35,7 @@ variable "virtual_machine_is_template" {
   default     = false
 }
 variable "virtual_machine_template_node_name" {
-  description = "template used for VM creation"
+  description = "template used for creation"
   type        = string
   default     = "pve-node-3"
 }
@@ -67,15 +67,15 @@ variable "virtual_machine_raw_disk_path" {
 
 # Variables to be filled
 variable "virtual_machine_node_name" {
- description = "Proxmox node for VM"
+ description = "Proxmox node name on which it resides"
  type        = string
 }
 variable "virtual_machine_hostname" {
-  description = "VM hostname"
+  description = "Hostname"
   type        = string
 }
 variable "virtual_machine_tags" {
-  description = "VM tags"
+  description = "Tags"
   type        = list(string)
 }
 variable "virtual_machine_memory" {
@@ -83,6 +83,6 @@ variable "virtual_machine_memory" {
   type        = number
 }
 variable "virtual_machine_disk_size" {
-  description = "VM Disk (size in GB)"
+  description = "Disk (size in GB)"
   type        = number
 }

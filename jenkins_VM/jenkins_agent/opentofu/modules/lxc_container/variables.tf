@@ -1,11 +1,11 @@
 # Variables with default value
 variable "lxc_container_datastore_disk" {
-  description = "Proxmox datastore for Container disk"
+  description = "Proxmox datastore for disk"
   type        = string
   # default     = "cephstorage"
 }
 variable "lxc_container_dns_domain" {
-  description = "VM dns domain"
+  description = "DNS domain"
   type        = string
   default     = "maison.lvsb.fr"
 }
@@ -20,7 +20,7 @@ variable "lxc_container_gateway" {
   default     = "192.168.0.1"
 }
 variable "lxc_container_dns_servers" {
-  description = "dns servers list"
+  description = "DNS servers list"
   type        = list(string)
   default     = ["192.168.0.3"]
 }
@@ -52,7 +52,7 @@ variable "lxc_container_user_sshpubkey_jenkins_agent" {
 
 # Variables with default null value, filled depending if template or not
 variable "lxc_raw_disk_path" {
-  description = "lxc data disk path for NFS LXC"
+  description = "lxc physical data disk path"
   type        = string
   default     = null
 }
@@ -72,15 +72,15 @@ variable "lxc_container_downloaded_file_id" {
   type        = string
 }
 variable "lxc_container_node_name" {
- description = "Proxmox node for VM"
+ description = "Proxmox node name on which it resides"
  type        = string
 }
 variable "lxc_container_hostname" {
-  description = "VM hostname"
+  description = "Hostname"
   type        = string
 }
 variable "lxc_container_tags" {
-  description = "Container tags"
+  description = "Tags"
   type        = list(string)
 }
 variable "lxc_container_memory" {
@@ -88,6 +88,11 @@ variable "lxc_container_memory" {
   type        = number
 }
 variable "lxc_container_disk_size" {
-  description = "Container Disk (size in GB)"
+  description = "Disk (size in GB)"
   type        = number
+}
+variable "lxc_container_startup_order" {
+  description = "Startup order"
+  type        = number
+  default     = null
 }
