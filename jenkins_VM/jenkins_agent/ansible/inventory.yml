@@ -34,6 +34,10 @@ all:
       hosts:
         dolibarr_1:
           ansible_host: 192.168.0.80
+    grocy:
+      hosts:
+        grocy_1:
+          ansible_host: 192.168.0.81
     nfs_common:
       hosts:
         nfs_server_1:
@@ -42,4 +46,5 @@ all:
         jenkins_2:
         events_1:
         dolibarr_1:
+        grocy_1:
 ...

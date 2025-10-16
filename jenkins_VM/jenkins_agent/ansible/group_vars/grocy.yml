@@ -1,0 +1,33 @@
+---
+ansible_user: ansible
+ansible_ssh_private_key_file: "/run/secrets/ansible_private_ssh_key"
+
+#data_remote_source: "{{ nfs_server_vip | ansible.utils.ipaddr('address') }}:config"
+mounts:
+  - config
+data_local_path_config: "{{ data_local_path }}/config"
+
+erp_path: "{{ data_local_path_config }}/grocy"
+
+##
+# ERP: grocy
+##
+erp:
+  version: 4.5.0
+  registry_name: lscr.io/linuxserver
+  service_name: grocy
+
+services:
+  # ERP App
+  - name: "{{ erp.service_name }}"
+    image_name: "{{ erp.registry_name }}/{{ erp.service_name }}:{{ erp.version }}"
+    container_name: "{{ erp.service_name }}"
+    environment:
+      PUID: "{{ nfs_share_owner.uid}}"
+      PGID: "{{ nfs_share_owner.gid}}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "{{ erp_path }}:/config"
+...
