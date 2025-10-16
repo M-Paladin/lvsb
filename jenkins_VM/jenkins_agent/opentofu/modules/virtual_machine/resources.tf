@@ -7,8 +7,7 @@ resource "proxmox_virtual_environment_vm" "this" {
   tags       = var.virtual_machine_tags
   template   = var.virtual_machine_is_template
   migrate    = true
-
-  started = var.virtual_machine_hostname == "fileserver-2" ? false : true
+  started    = true
 
   cpu {
     architecture = "x86_64"
