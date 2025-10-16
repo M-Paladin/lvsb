@@ -77,7 +77,7 @@ module "cloud-init" {
   cloud-init_node_name          = each.value.node_name
   cloud-init_vm_version_date    = each.value.version_date
   cloud-init_datastore_snippets = each.value.datastore_snippets
-  cloud-init_user_name          = (each.key == "dolibarr" || each.key == "jenkins-2" || each.key == "dns-ext" || each.key == "jenkins-1") ? "ansible" : "jenkins"
+  cloud-init_user_name          = (each.key == "dolibarr" || each.key == "jenkins-2" || each.key == "dns-ext" || each.key == "jenkins-1" || each.key == "grocy") ? "ansible" : "jenkins"
 }
 
 module "virtual_machines" {

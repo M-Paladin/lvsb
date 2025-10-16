@@ -1,0 +1,50 @@
+---
+- name: Configure VM with ERP Grocy
+  hosts: "{{ host }}"
+  gather_facts: no
+
+  tasks:
+    - name: Debian - Prerequisites
+      ansible.builtin.include_role:
+        name: "{{ item }}"
+      loop:
+        - set_locale
+        - docker
+        - nfs_client
+        - no_ipv6
+
+    - name: Docker - Check if compose file exists
+      ansible.builtin.stat: 
+        path: "./compose.yml"
+      register: docker_compose_file
+
+    - name: Debian - Test docker compose file changes
+      ansible.builtin.template:
+        src: ./templates/compose.yml.j2
+        dest: "./compose.yml"
+        lstrip_blocks: yes
+      check_mode: true
+      register: docker_compose_file_content
+      when: docker_compose_file.stat.exists
+
+    - name: Docker - Deploy Grocy container
+      ansible.builtin.import_role:
+        name: docker_compose
+
+    - name: Grocy - Purge ngnix ipv6
+      ansible.builtin.lineinfile:
+        path: "{{ erp_path }}/nginx/site-confs/default.conf"
+        regexp: '^[ ]*listen \[::\]:.*'
+        state: absent
+      notify:
+        - Docker | Restart Grocy container
+      tags:
+        - test
+
+  handlers:
+    - name: Docker | Restart Grocy container
+      community.docker.docker_container:
+        name: "{{ erp.service_name }}"
+        state: started
+        restart: true
+...
