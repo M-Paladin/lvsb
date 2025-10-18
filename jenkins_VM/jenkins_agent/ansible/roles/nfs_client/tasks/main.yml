@@ -1,7 +1,7 @@
 ---
 - block:
   - name: Debian - Install required packages
-    ansible.builtin.package:
+    ansible.builtin.apt:
       name: nfs-common
 
   - name: Debian - Create NFS user

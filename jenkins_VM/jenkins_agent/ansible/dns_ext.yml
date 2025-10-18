@@ -35,7 +35,7 @@
         'cron' not in ansible_facts.packages
 
     - name: Debian - Install required packages
-      ansible.builtin.package:
+      ansible.builtin.apt:
         name:
           - bind9
           - bind9-dnsutils

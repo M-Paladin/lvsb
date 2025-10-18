@@ -16,11 +16,13 @@
         - no_ipv6
 
     - name: Debian - Install required packages for HA NFS server
-      ansible.builtin.package:
+      ansible.builtin.apt:
         name:
           - nfs-kernel-server
           - keepalived
           - syncthing
+        update_cache: true
+          # - "syncthing={{ syncthing_version }}"
 
     - name: Debian - Create NFS user
       ansible.builtin.user:
