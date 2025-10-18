@@ -7,7 +7,8 @@ syncthing_config_path: "{{ config_path }}/{{ inventory_hostname }}/syncthing"
 repository_application: Syncthing
 repository_gpg_key_remote_url: https://syncthing.net/release-key.gpg
 repository_gpg_key_local_path: /etc/apt/keyrings/syncthing-archive-keyring.gpg
-repository_remote_url: https://apt.syncthing.net/ syncthing stable
+repository_remote_url: https://apt.syncthing.net/
+repository_remote_url_suite: syncthing
 
 local_network: "192.168.0.0/24"
 
