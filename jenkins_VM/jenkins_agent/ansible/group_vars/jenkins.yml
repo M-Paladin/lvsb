@@ -17,9 +17,10 @@ cicd_server:
   # https://hub.docker.com/r/jenkins/jenkins/tags
   registry_name: jenkins
   image_name: jenkins
-  version: 2.460-alpine-jdk21
-  build_version: '2.460'
+  version: 2.528.1-alpine-jdk21
+  build_version: '2.528.1'
   service_name: jenkins_server
+  container_name: "{{ inventory_hostname }}_server"
 
 ##
 # CICD agent : Jenkins agent
@@ -28,31 +29,36 @@ cicd_agent:
   # https://hub.docker.com/r/jenkins/ssh-agent/tags
   registry_name: jenkins
   image_name: ssh-agent
-  version: 5.38.0-alpine-jdk21
-  build_version: '5.38.0'
+  version: 7.2.0-alpine-jdk21
+  build_version: '7.2.0'
   service_name: jenkins_agent
+  container_name: "{{ inventory_hostname }}_agent"
 
 ##
 # Automation : Ansible
 ##
 automation:
+  # https://hub.docker.com/r/alpine/ansible/tags
   image_name: alpine
-  version: '3.21'
-  build_version: '2.18.1'
+  version: '3.22'
+  build_version: '2.18.6'
   service_name: ansible
   code_dir: /ansible-playbooks
+  container_name: "{{ inventory_hostname }}_ansible"
 
 ##
 # IaC : Opentofu
 ##
 iac:
+  # https://pkgs.alpinelinux.org/packages?name=opentofu
   image_name: alpine
-  version: '3.21'
-  build_version: '1.7.1'
+  version: '3.22'
+  build_version: '1.9.1'
   service_name: opentofu
   code_dir: /opentofu/proxmox
   tf_data_dir: /opentofu/tf_data_dir
   tfstate: /opentofu/tfstate
+  container_name: "{{ inventory_hostname }}_opentofu"
 
 services:
   # CI/CD server
@@ -79,7 +85,7 @@ services:
       COPY --chown=jenkins:jenkins ./plugins.txt /usr/share/jenkins/ref/plugins.txt
       RUN jenkins-plugin-cli --plugins -f /usr/share/jenkins/ref/plugins.txt
     image_name: "{{ local_registry_name }}/{{ cicd_server.service_name }}:{{ cicd_server.build_version }}"
-    container_name: "{{ cicd_server.service_name }}"
+    container_name: "{{ cicd_server.container_name }}"
     volumes:
       - "{{ data_local_path_git }}/{{ cicd_server.service_name }}/casc.d:/var/jenkins_home/casc.d/:ro"
       - "{{ data_local_path_git }}/{{ cicd_server.service_name }}/jobdsl:/var/jenkins_home/jobdsl/:rw"
@@ -104,15 +110,15 @@ services:
       RUN <<-EORUN
       apk add --update --no-cache docker
       cat <<-EOF > /etc/profile.d/99aliases.sh
-      alias ansible="docker exec -w {{ automation.code_dir }} -it {{ automation.service_name }} ansible"
-      alias ansible-playbook="docker exec -w {{ automation.code_dir }} -it {{ automation.service_name }} ansible-playbook"
-      alias tofu="docker exec -w {{ iac.code_dir }} -it {{ iac.service_name }} tofu"
+      alias ansible="docker exec -w {{ automation.code_dir }} -it {{ automation.container_name }} ansible"
+      alias ansible-playbook="docker exec -w {{ automation.code_dir }} -it {{ automation.container_name }} ansible-playbook"
+      alias tofu="docker exec -w {{ iac.code_dir }} -it {{ iac.container_name }} tofu"
       EOF
       EORUN
 
       ENV ENV=/etc/profile
     image_name: "{{ local_registry_name }}/{{ cicd_agent.service_name }}:{{ cicd_agent.build_version }}"
-    container_name: "{{ cicd_agent.service_name }}"
+    container_name: "{{ cicd_agent.container_name }}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
@@ -137,7 +143,7 @@ services:
 
       ENTRYPOINT ["/bin/sleep", "infinity"]
     image_name: "{{ local_registry_name }}/{{ automation.service_name }}:{{ automation.build_version }}"
-    container_name: "{{ automation.service_name }}"
+    container_name: "{{ automation.container_name }}"
     volumes:
       - "{{ data_local_path_git }}/{{ cicd_agent.service_name }}/ansible:{{ automation.code_dir }}:ro"
     secrets:
@@ -172,7 +178,7 @@ services:
 
       ENTRYPOINT ["/bin/sleep", "infinity"]
     image_name: "{{ local_registry_name }}/{{ iac.service_name }}:{{ iac.build_version }}"
-    container_name: "{{ iac.service_name }}"
+    container_name: "{{ iac.container_name }}"
     volumes:
       - "{{ data_local_path_git }}/{{ cicd_agent.service_name }}/opentofu:{{ iac.code_dir }}:rw"
       - "{{ data_local_path_config }}{{ iac.tf_data_dir }}:{{ iac.tf_data_dir }}:rw"
