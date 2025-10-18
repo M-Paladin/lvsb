@@ -59,11 +59,11 @@
       
     - name: Jenkins server - Download jenkins-cli.jar from and inside container
       community.docker.docker_container_exec:
-        container: "{{ cicd_server.service_name }}"
+        container: "{{ cicd_server.container_name }}"
         command: curl -o /tmp/jenkins-cli.jar http://{{ ansible_host }}:8080/jnlpJars/jenkins-cli.jar
 
     - name: Jenkins server - Reload server configuration from cli in container
       community.docker.docker_container_exec:
-        container: "{{ cicd_server.service_name }}"
+        container: "{{ cicd_server.container_name }}"
         command: java -jar /tmp/jenkins-cli.jar -s http://{{ ansible_host }}:8080/ -auth "admin:password" reload-jcasc-configuration
 ...
