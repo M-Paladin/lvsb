@@ -1,15 +1,32 @@
 ---
+- name: Debian - Gather LSB
+  ansible.builtin.setup:
+    gather_subset: 'lsb'
+
 - name: "{{ repository_application }} - Download repository gpg key"
   ansible.builtin.get_url:
     url: "{{ repository_gpg_key_remote_url }}"
     dest: "{{ repository_gpg_key_local_path }}"
     mode: 'a+r'
 
-- name: "{{ repository_application }} - Add apt repository"
+- name: "{{ repository_application }} - Add apt repository (old syntax)"
   ansible.builtin.apt_repository:
     repo: >-
       deb [arch=amd64 signed-by={{ repository_gpg_key_local_path }}]
-      {{ repository_remote_url }}
+      {{ repository_remote_url }} {{ repository_remote_url_suite | default(ansible_lsb.codename) }} stable
     filename: "{{ repository_application | lower }}"
+  when: ansible_lsb.codename != 'trixie'
+  become: true
+
+- name: "{{ repository_application }} - Add apt repository (deb822 syntax)"
+  ansible.builtin.deb822_repository:
+    name: "{{ repository_application | lower }}"
+    types: deb
+    uris: "{{ repository_remote_url }}"
+    suites: "{{ ansible_lsb.codename }}"
+    components: stable
+    architectures: amd64
+    signed_by: "{{ repository_gpg_key_local_path }}"
+  when: ansible_lsb.codename == 'trixie'
   become: true
 ...
