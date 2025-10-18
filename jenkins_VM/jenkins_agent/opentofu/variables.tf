@@ -11,6 +11,7 @@ variable "cloud_images" {
       img_checksum          : Linux Cloud Image checksum
       img_checksum_algorythm: Linux Cloud Image checksum algorythm
       img_file_name         : Linux Cloud Image target file name
+      datastore             : Datastore used for image
     }
   EOT
   type = map(object({
@@ -20,6 +21,7 @@ variable "cloud_images" {
     img_checksum           = optional(string, null)
     img_checksum_algorythm = optional(string, null)
     img_file_name          = optional(string, null)
+    datastore              = optional(string, "nfs")
   }))
 }
 
@@ -57,33 +59,35 @@ variable "virtual_machines" {
   description = <<-EOT
     List of virtual machines
     Virtual Machine hostname = {
-      node_name     : Target Proxmox node for Virtual Machine
-      memory        : Virtual Machine memory amount
-      disk_size     : Virtual Machine disk size (in GB)
-      tags          : Virtual Machine tags list
-      template_id   : Template id for Virtual Machine
-      ip            : IP address CIDR format (ex : 192.168.0.1/24)
-      version_date  : When this information changes the machine will be recreated
-      datastore_disk: Storage used for VM disk
-      raw_disk_path : Dev path for the disk (used for passthrough)
-      datastore_snippets : Storage used for Cloud-Init disk
-      dns_servers   : DNS servers to use
-      #disk_serial   : Serial number of above disk
+      node_name            : Target Proxmox node for Virtual Machine
+      memory               : Virtual Machine memory amount
+      disk_size            : Virtual Machine disk size (in GB)
+      tags                 : Virtual Machine tags list
+      template_id          : Template id for Virtual Machine
+      ip                   : IP address CIDR format (ex : 192.168.0.1/24)
+      datastore_disk       : Storage used for VM disk
+      raw_disk_path        : Dev path for the disk (used for passthrough)
+      dns_servers          : DNS servers to use
+      CI_datastore_snippets: Storage used for Cloud-Init disk
+      CI_template-file     : Template file used to create cloud-init
+      CI_deployment_info   : When this information changes the machine will be recreated
+      CI_user_name         : User created during cloud-init
     }
   EOT
   type = map(object({
-    node_name          = string
-    memory             = number
-    disk_size          = number
-    tags               = list(string)
-    template_id        = number
-    ip                 = string
-    version_date       = string
-    datastore_disk     = string
-    raw_disk_path      = optional(string, null)
-    datastore_snippets = optional(string, "local")
-    dns_servers        = optional(list(string), ["192.168.0.3"])
-    #disk_serial       = optional(string, null)
+    node_name             = string
+    memory                = number
+    disk_size             = number
+    tags                  = list(string)
+    template_id           = number
+    ip                    = string
+    datastore_disk        = string
+    raw_disk_path         = optional(string, null)
+    dns_servers           = optional(list(string), ["192.168.0.3"])
+    CI_datastore_snippets = optional(string, "nfs")
+    CI_template-file      = string
+    CI_deployment_info    = string
+    CI_user_name          = optional(string, "ansible")
   }))
 }
 

@@ -15,8 +15,13 @@ module "cloud_images" {
   cloud_image_checksum           = each.value.img_checksum
   cloud_image_checksum_algorythm = each.value.img_checksum_algorythm
   cloud_image_file_name          = each.value.img_file_name
-  cloud_image_datastore_image    = "nfs"
+  cloud_image_datastore_image    = each.value.datastore
 }
+
+# moved {
+#   from = module.cloud_images["debian-vm-cloud-image-old"].proxmox_virtual_environment_download_file.this
+#   to   = module.cloud_images["debian-vm-cloud-image-12-1740"].proxmox_virtual_environment_download_file.this
+# }
 
 #####################
 # Virtual Templates #
@@ -35,12 +40,18 @@ module "virtual_machine_templates" {
   virtual_machine_memory             = each.value.memory
   virtual_machine_disk_size          = each.value.disk_size
   virtual_machine_tags               = each.value.tags
-  virtual_machine_is_template        = true
   virtual_machine_template_id        = each.value.template_id
   virtual_machine_downloaded_file_id = module.cloud_images[each.value.cloud_image].cloud_image_downloaded_file_id
   virtual_machine_datastore_disk     = each.value.datastore_disk
-  virtual_machine_dns_servers        = ["192.168.0.3"]
+  virtual_machine_dns_servers        = each.value.dns_servers
+
+  virtual_machine_is_template        = true
 }
+
+# moved {
+#   from = module.virtual_machine_templates["vm-template-debian-old"].proxmox_virtual_environment_vm.this
+#   to   = module.virtual_machine_templates["vm-template-debian-B"].proxmox_virtual_environment_vm.this
+# }
 
 # module "lxc_container_templates" {
 #   # for_each = { for k, v in var.templates : k => v if !v.is_vm }
@@ -75,9 +86,10 @@ module "cloud-init" {
 
   cloud-init_hostname           = each.key
   cloud-init_node_name          = each.value.node_name
-  cloud-init_vm_version_date    = each.value.version_date
-  cloud-init_datastore_snippets = each.value.datastore_snippets
-  cloud-init_user_name          = (each.key == "dolibarr" || each.key == "jenkins-2" || each.key == "dns-ext" || each.key == "jenkins-1" || each.key == "grocy") ? "ansible" : "jenkins"
+  cloud-init_deployment_info    = each.value.CI_deployment_info
+  cloud-init_template-file      = each.value.CI_template-file
+  cloud-init_datastore_snippets = each.value.CI_datastore_snippets
+  cloud-init_user_name          = each.value.CI_user_name
 }
 
 module "virtual_machines" {

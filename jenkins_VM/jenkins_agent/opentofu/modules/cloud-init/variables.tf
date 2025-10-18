@@ -17,7 +17,6 @@ variable "cloud-init_user_sshpubkey_ansible" {
 variable "cloud-init_user_name" {
   description = "VM username"
   type        = string
-  default     = "jenkins"
 }
 
 # Variables to be filled
@@ -29,7 +28,11 @@ variable "cloud-init_hostname" {
   description = "VM hostname"
   type        = string
 }
-variable "cloud-init_vm_version_date" {
+variable "cloud-init_deployment_info" {
   description = "string used to retrigger deployment for upgrade"
+  type        = string
+}
+variable "cloud-init_template-file" {
+  description = "select the template file to be used"
   type        = string
 }
