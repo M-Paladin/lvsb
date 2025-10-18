@@ -4,7 +4,6 @@ local-hostname: ${hostname}
 fqdn: ${hostname}.${dns_domain}
 manage_etc_hosts: true
 
-#package_upgrade: true
 packages:
   - qemu-guest-agent
 
@@ -21,15 +20,4 @@ users:
     ssh_authorized_keys:
       - ssh-rsa ${sshpubkey_ansible}
 
-# power_state:
-#     delay: now
-#     mode: reboot
-#     message: Rebooting after cloud-init completion
-#     condition: true
-
-chpasswd:
-  list: |
-    root:lvsb
-  expire: False
-
-final_message: "virtual machine linux version and date : ${cloud-init_deployment_info}"
+final_message: "virtual machine deployment information : ${cloud-init_deployment_info}"
