@@ -14,10 +14,11 @@
       repository_remote_url: "https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable"
 
   - name: Debian - Install required packages
-    ansible.builtin.package:
+    ansible.builtin.apt:
       name:
         - docker-ce
         - python3-docker
+      update_cache: true
 
   - name: Docker - Add ansible user to group
     ansible.builtin.user:

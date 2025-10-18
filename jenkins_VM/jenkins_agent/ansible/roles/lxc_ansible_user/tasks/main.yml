@@ -26,7 +26,7 @@
         msg: "{{ lxc_ansible_user_name }}"
 
     - name: Debian - Install required packages
-      ansible.builtin.package:
+      ansible.builtin.apt:
         name: sudo
 
     - name: Debian - Create ansible user
