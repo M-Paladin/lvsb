@@ -32,18 +32,20 @@ variable "virtual_machine_templates" {
   description = <<-EOT
     List of templates
     Template Machine hostname = {
-      node_name             : Target Proxmox node for Template Machine
-      memory                : Template Machine memory amount
-      disk_size             : Template Machine disk size (in GB)
-      tags                  : Template Machine tags list
-      template_id           : Template Machine id
-      datastore_disk        : Storage used for VM disk
-      cloud_image           : Image used to create the template
+      node_name     : Target Proxmox node for Template Machine
+      memory        : Template Machine memory amount
+      cpu_cores     : Template Machine core amount
+      disk_size     : Template Machine disk size (in GB)
+      tags          : Template Machine tags list
+      template_id   : Template Machine id
+      datastore_disk: Storage used for VM disk
+      cloud_image   : Image used to create the template
     }
   EOT
   type = map(object({
     node_name      = string
     memory         = number
+    cpu_cores      = optional(number, 2)
     disk_size      = number
     tags           = list(string)
     template_id    = number
@@ -61,33 +63,39 @@ variable "virtual_machines" {
     Virtual Machine hostname = {
       node_name            : Target Proxmox node for Virtual Machine
       memory               : Virtual Machine memory amount
+      cpu_cores            : Virtual Machine core amount
       disk_size            : Virtual Machine disk size (in GB)
       tags                 : Virtual Machine tags list
-      template_id          : Template id for Virtual Machine
+      vm-template          : Template Machine used
       ip                   : IP address CIDR format (ex : 192.168.0.1/24)
+      gateway              : Gateway IP address (ex : 192.168.0.1)
       datastore_disk       : Storage used for VM disk
-      raw_disk_path        : Dev path for the disk (used for passthrough)
       dns_servers          : DNS servers to use
+      dns_domain           : DNS domain to use
       CI_datastore_snippets: Storage used for Cloud-Init disk
       CI_template-file     : Template file used to create cloud-init
       CI_deployment_info   : When this information changes the machine will be recreated
       CI_user_name         : User created during cloud-init
+      # raw_disk_path        : Dev path for the disk (used for passthrough)
     }
   EOT
   type = map(object({
     node_name             = string
     memory                = number
+    cpu_cores             = optional(number, 2)
     disk_size             = number
     tags                  = list(string)
-    template_id           = number
+    vm-template           = string
     ip                    = string
+    gateway               = optional(string, "192.168.0.1")
     datastore_disk        = string
-    raw_disk_path         = optional(string, null)
     dns_servers           = optional(list(string), ["192.168.0.3"])
+    dns_domain            = optional(string, "maison.lvsb.fr")
     CI_datastore_snippets = optional(string, "nfs")
     CI_template-file      = string
     CI_deployment_info    = string
     CI_user_name          = optional(string, "ansible")
+    # raw_disk_path         = optional(string, null)
   }))
 }
 
