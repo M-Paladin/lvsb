@@ -1,3 +1,13 @@
+# Used to trigger replacement when decided
+resource "terraform_data" "deployment_info_replacement" {
+  triggers_replace = var.lxc_container_deployment_info
+}
+
+moved {
+  from = terraform_data.version_date_replacement
+  to   = terraform_data.deployment_info_replacement
+}
+
 resource "proxmox_virtual_environment_container" "this" {
   node_name     = var.lxc_container_node_name
   tags          = var.lxc_container_tags
@@ -29,6 +39,7 @@ resource "proxmox_virtual_environment_container" "this" {
 
   # to be enhanced
   dynamic mount_point {
+    # for_each = var.lxc_container_hostname == "nfs-server-test" ? [] : [ "lxc is a test" ]
     for_each = coalesce(var.lxc_raw_disk_path,"no_disk") == "no_disk" ? [] : [ "vm is a NAS" ]
 
     content {
@@ -37,6 +48,18 @@ resource "proxmox_virtual_environment_container" "this" {
       path   = "/srv/datadisk"
     }
   }
+
+  # dynamic device_passthrough {
+  #   for_each = var.lxc_container_hostname == "nfs-server-test" ? [ "lxc is a test" ] : []
+
+  #   content {
+  #     deny_write = false
+  #     gid        = 0
+  #     mode       = "0777"
+  #     path       = var.lxc_raw_disk_path
+  #     uid        = 0
+  #   }
+  # }
 
   # nfs server test syncthing
   # started = var.lxc_container_hostname == "nfs-server-test" ? false : true
@@ -82,11 +105,7 @@ resource "proxmox_virtual_environment_container" "this" {
 
   lifecycle {
     replace_triggered_by = [ 
-      terraform_data.version_date_replacement
+      terraform_data.deployment_info_replacement
     ]
   }
-}
-
-resource "terraform_data" "version_date_replacement" {
-  triggers_replace = var.lxc_container_version_date
 }

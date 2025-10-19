@@ -49,7 +49,7 @@ variable "virtual_machine_templates" {
     disk_size      = number
     tags           = list(string)
     template_id    = number
-    datastore_disk = string
+    datastore_disk = optional(string, "cephstorage")
     cloud_image    = string
   }))
 }
@@ -65,17 +65,17 @@ variable "virtual_machines" {
       memory               : Virtual Machine memory amount
       cpu_cores            : Virtual Machine core amount
       disk_size            : Virtual Machine disk size (in GB)
+      datastore_disk       : Storage used for VM disk
       tags                 : Virtual Machine tags list
       vm-template          : Template Machine used
       ip                   : IP address CIDR format (ex : 192.168.0.1/24)
       gateway              : Gateway IP address (ex : 192.168.0.1)
-      datastore_disk       : Storage used for VM disk
       dns_servers          : DNS servers to use
       dns_domain           : DNS domain to use
       CI_datastore_snippets: Storage used for Cloud-Init disk
       CI_template-file     : Template file used to create cloud-init
-      CI_deployment_info   : When this information changes the machine will be recreated
       CI_user_name         : User created during cloud-init
+      CI_deployment_info   : When this information changes the machine will be recreated
       # raw_disk_path        : Dev path for the disk (used for passthrough)
     }
   EOT
@@ -84,17 +84,17 @@ variable "virtual_machines" {
     memory                = number
     cpu_cores             = optional(number, 2)
     disk_size             = number
+    datastore_disk        = optional(string, "cephstorage")
     tags                  = list(string)
     vm-template           = string
     ip                    = string
     gateway               = optional(string, "192.168.0.1")
-    datastore_disk        = string
     dns_servers           = optional(list(string), ["192.168.0.3"])
     dns_domain            = optional(string, "maison.lvsb.fr")
     CI_datastore_snippets = optional(string, "nfs")
     CI_template-file      = string
-    CI_deployment_info    = string
     CI_user_name          = optional(string, "ansible")
+    CI_deployment_info    = string
     # raw_disk_path         = optional(string, null)
   }))
 }
@@ -107,32 +107,46 @@ variable "lxc_containers" {
     List of containers
     hostname: Container hostname
     {
-      node_name     : Target Proxmox node for Container
-      memory        : Container memory amount
-      disk_size     : Container disk size (in GB)
-      tags          : Container tags list
-      ip            : IP address CIDR format (ex : 192.168.0.1/24)
-      version_date  : When this information changes the machine will be recreated
-      datastore_disk: Storage used for container disk
-      cloud_image_id: Image ID used to create the container (storage:type/image_name)
-      raw_disk_path : Dev path for the disk (used for passthrough)
-      unpriviledged : is container unpriviledged
-      startup_order : Container startup order
+      node_name      : Target Proxmox node for Container
+      memory         : Container memory amount
+      cpu_cores      : Container core amount
+      disk_size      : Container disk size (in GB)
+      datastore_disk : Storage used for container disk
+      raw_disk_path  : Dev path for the disk (used for passthrough)
+      tags           : Container tags list
+      ip             : IP address CIDR format (ex : 192.168.0.1/24)
+      gateway        : Gateway IP address (ex : 192.168.0.1)
+      dns_servers    : DNS servers to use
+      dns_domain     : DNS domain to use
+      cloud_image    : Image used to create the container from cloud_images list
+      cloud_image_id : Image ID used to create the container (storage:type/image_name)
+      unpriviledged  : is container unpriviledged
+      startup_order  : Container startup order
+      deployment_info: When this information changes the container will be recreated
     }
   EOT
   type = map(object({
-    node_name      = string
-    memory         = number
-    disk_size      = number
-    tags           = list(string)
-    ip             = string
-    version_date   = string
-    datastore_disk = string
-    cloud_image_id = string
-    raw_disk_path  = optional(string, null)
-    unpriviledged  = optional(bool, true)
-    startup_order  = optional(number, null)
+    node_name                 = string
+    memory                    = number
+    cpu_cores                 = optional(number, 2)
+    disk_size                 = number
+    datastore_disk            = optional(string, "cephstorage")
+    raw_disk_path             = optional(string, null)
+    tags                      = list(string)
+    ip                        = string
+    gateway                   = optional(string, "192.168.0.1")
+    dns_servers               = optional(list(string), ["192.168.0.3"])
+    dns_domain                = optional(string, "maison.lvsb.fr")
+    cloud_image               = string
+    cloud_image_id            = string
+    unpriviledged             = optional(bool, true)
+    startup_order             = optional(number, null)
+    deployment_info           = string
   }))
 }
 
+variable "jenkins_agent_ansible_user_sshpubkey" {
+  description = "public ssh key to be accessed from ansible"
+  type        = string
+}
 

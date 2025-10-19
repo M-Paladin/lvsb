@@ -133,15 +133,19 @@ module "lxc_containers" {
   lxc_container_hostname           = each.key
   lxc_container_node_name          = each.value.node_name
   lxc_container_memory             = each.value.memory
+  lxc_container_cpu_cores          = each.value.cpu_cores
   lxc_container_disk_size          = each.value.disk_size
+  lxc_container_datastore_disk     = each.value.datastore_disk
+  lxc_raw_disk_path                = each.value.raw_disk_path
   lxc_container_tags               = each.value.tags
   lxc_container_ip                 = each.value.ip
-  lxc_container_datastore_disk     = each.value.datastore_disk
-  lxc_container_version_date       = each.value.version_date
-  lxc_container_downloaded_file_id = each.value.cloud_image_id #"local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst" # module.cloud_images[each.value.cloud_image].cloud_image_downloaded_file_id
-  lxc_raw_disk_path                = each.value.raw_disk_path
+  lxc_container_gateway            = each.value.gateway
+  lxc_container_dns_servers        = each.value.dns_servers
+  lxc_container_dns_domain         = each.value.dns_domain
+  lxc_container_downloaded_file_id = module.cloud_images[each.value.cloud_image].cloud_image_downloaded_file_id # each.value.cloud_image_id
   lxc_container_is_unpriviledged   = each.value.unpriviledged
   lxc_container_startup_order      = each.value.startup_order
+  lxc_container_deployment_info    = each.value.deployment_info
   
   # lxc_container_template_id    = each.value.template_id
 

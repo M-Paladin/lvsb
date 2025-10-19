@@ -2,27 +2,7 @@
 variable "lxc_container_datastore_disk" {
   description = "Proxmox datastore for disk"
   type        = string
-  # default     = "cephstorage"
-}
-variable "lxc_container_dns_domain" {
-  description = "DNS domain"
-  type        = string
-  default     = "maison.lvsb.fr"
-}
-variable "lxc_container_cpu_cores" {
-  description = "Number of cores"
-  type        = number
-  default     = 2
-}
-variable "lxc_container_gateway" {
-  description = "Default gateway IP address"
-  type        = string
-  default     = "192.168.0.1"
-}
-variable "lxc_container_dns_servers" {
-  description = "DNS servers list"
-  type        = list(string)
-  default     = ["192.168.0.3"]
+  default     = "local-lvm"
 }
 variable "lxc_container_is_unpriviledged" {
   description = "is container unpriviledged ?"
@@ -51,22 +31,43 @@ variable "lxc_container_user_sshpubkey_jenkins_agent" {
 # }
 
 # Variables with default null value, filled depending if template or not
+variable "lxc_container_ip" {
+  description = "IP address CIDR format (ex : 192.168.0.1/24)"
+  type        = string
+  default     = null
+}
+variable "lxc_container_gateway" {
+  description = "Default gateway IP address"
+  type        = string
+  default     = null
+}
+variable "lxc_container_dns_servers" {
+  description = "DNS servers list"
+  type        = list(string)
+  default     = null
+}
+variable "lxc_container_dns_domain" {
+  description = "DNS domain"
+  type        = string
+  default     = null
+}
 variable "lxc_raw_disk_path" {
   description = "lxc physical data disk path"
   type        = string
   default     = null
 }
-variable "lxc_container_version_date" {
+variable "lxc_container_startup_order" {
+  description = "Startup order"
+  type        = number
+  default     = null
+}
+variable "lxc_container_deployment_info" {
   description = "Container Time creation, used to trigger replacement"
   type        = string
   default     = null
 }
 
 # Variables to be filled
-variable "lxc_container_ip" {
-  description = "IP address CIDR format (ex : 192.168.0.1/24)"
-  type        = string
-}
 variable "lxc_container_downloaded_file_id" {
   description = "id from the cloud_image module after resource creation"
   type        = string
@@ -87,12 +88,11 @@ variable "lxc_container_memory" {
   description = "Memory size in MB"
   type        = number
 }
+variable "lxc_container_cpu_cores" {
+  description = "Number of cores"
+  type        = number
+}
 variable "lxc_container_disk_size" {
   description = "Disk (size in GB)"
   type        = number
-}
-variable "lxc_container_startup_order" {
-  description = "Startup order"
-  type        = number
-  default     = null
 }

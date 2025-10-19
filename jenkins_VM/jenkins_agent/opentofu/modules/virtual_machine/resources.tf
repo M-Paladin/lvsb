@@ -43,19 +43,19 @@ resource "proxmox_virtual_environment_vm" "this" {
   }
 
   # Direct attached Data disk
-  dynamic disk {
-    for_each = coalesce(var.virtual_machine_raw_disk_path,"no_disk") == "no_disk" ? [] : [ "vm is a NAS"  ]
+  # dynamic disk {
+  #   for_each = coalesce(var.virtual_machine_raw_disk_path,"no_disk") == "no_disk" ? [] : [ "vm is a NAS"  ]
 
-    content {
-      datastore_id      = ""
-      path_in_datastore = var.virtual_machine_raw_disk_path
-      file_format       = "raw"
-      interface         = "scsi1"
-      size              = "16764"
-      backup            = false
-      iothread          = true
-    }
-  }
+  #   content {
+  #     datastore_id      = ""
+  #     path_in_datastore = var.virtual_machine_raw_disk_path
+  #     file_format       = "raw"
+  #     interface         = "scsi1"
+  #     size              = "16764"
+  #     backup            = false
+  #     iothread          = true
+  #   }
+  # }
 
   serial_device {} # The Debian cloud image expects a serial port to be present
 
